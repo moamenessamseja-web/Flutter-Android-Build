@@ -177,8 +177,14 @@ jobs:
           if [ "$ANDROID_SCAFFOLD" = "never" ]; then
             echo "::error::android/ is missing and android_scaffold=never."; exit 1
           fi
+          # `flutter create` writes an analysis_options.yaml that includes package:flutter_lints, which the app
+          # may not depend on (analyze would then fail with include_file_not_found). Keep the app's own analyzer
+          # configuration: if it had none, drop the generated one.
+          had_analysis_options=false
+          [ -f analysis_options.yaml ] && had_analysis_options=true
           # shellcheck disable=SC2086  # intentional word splitting of extra args
           flutter create --platforms=android $SCAFFOLD_ARGS . 2>&1 | tee "$LOG_DIR/flutter-create.log"
+          if [ "$had_analysis_options" = false ]; then rm -f analysis_options.yaml; fi
 
       - name: Pre-build command
         if: ${{ inputs.pre_build_command != '' }}
