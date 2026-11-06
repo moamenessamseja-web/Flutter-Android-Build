@@ -1,0 +1,245 @@
+# Reusable workflow: build a Flutter Android APK.
+# Call it from any repository with `uses: <owner>/Flutter-Android-Build/.github/workflows/flutter-android-build.yml@main`.
+# Docs: README.md (section "Connect another Flutter repository").
+name: Flutter Android Build
+
+on:
+  workflow_call:
+    inputs:
+      flutter_version:
+        description: "Exact Flutter version (e.g. 3.47.9). Empty = latest release of the channel. Pin it for reproducible builds."
+        required: false
+        type: string
+        default: ""
+      flutter_channel:
+        description: "Flutter channel: stable, beta or main."
+        required: false
+        type: string
+        default: "stable"
+      java_version:
+        description: "JDK version used by Gradle (Temurin)."
+        required: false
+        type: string
+        default: "17"
+      build_mode:
+        description: "release, debug or profile."
+        required: false
+        type: string
+        default: "release"
+      working_directory:
+        description: "Directory containing pubspec.yaml, relative to the repository root."
+        required: false
+        type: string
+        default: "."
+      android_scaffold:
+        description: "auto = run `flutter create --platforms=android` only when android/ is missing; never = fail if it is missing."
+        required: false
+        type: string
+        default: "auto"
+      scaffold_args:
+        description: "Extra arguments for `flutter create` when the scaffold is generated (e.g. --org com.example)."
+        required: false
+        type: string
+        default: ""
+      pre_build_command:
+        description: "Optional shell command run after `pub get` and scaffold, before analyze/test/build (e.g. bash tool/ci_inject_android.sh)."
+        required: false
+        type: string
+        default: ""
+      run_analyze:
+        description: "Run `flutter analyze` before building."
+        required: false
+        type: boolean
+        default: true
+      analyze_args:
+        description: "Arguments for `flutter analyze`. Warnings and errors fail the build; infos do not."
+        required: false
+        type: string
+        default: "--no-fatal-infos"
+      run_tests:
+        description: "Run `flutter test` before building (skipped automatically when there is no test/ directory)."
+        required: false
+        type: boolean
+        default: true
+      build_args:
+        description: "Extra arguments for `flutter build apk` (e.g. --build-number=42 --dart-define=ENV=prod)."
+        required: false
+        type: string
+        default: ""
+      artifact_name:
+        description: "Name of the uploaded APK artifact."
+        required: false
+        type: string
+        default: "android-apk"
+      artifact_retention_days:
+        description: "Days to keep the APK artifact (1-90)."
+        required: false
+        type: number
+        default: 14
+      gradle_cache_read_only:
+        description: "true = never write the Gradle cache (setup-gradle defaults to read-only on non-default branches; this workflow defaults to false so feature branches also warm the cache)."
+        required: false
+        type: boolean
+        default: false
+      timeout_minutes:
+        description: "Job timeout."
+        required: false
+        type: number
+        default: 30
+    outputs:
+      artifact_name:
+        description: "Name of the uploaded APK artifact."
+        value: ${{ jobs.build.outputs.artifact_name }}
+      flutter_version:
+        description: "Flutter version actually used."
+        value: ${{ jobs.build.outputs.flutter_version }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build APK (${{ inputs.build_mode }})
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout_minutes }}
+    outputs:
+      artifact_name: ${{ inputs.artifact_name }}
+      flutter_version: ${{ steps.fingerprint.outputs.flutter_version }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+    steps:
+      - name: Validate inputs
+        working-directory: ${{ github.workspace }}  # the project directory does not exist before checkout
+        env:
+          BUILD_MODE: ${{ inputs.build_mode }}
+          ANDROID_SCAFFOLD: ${{ inputs.android_scaffold }}
+        run: |
+          case "$BUILD_MODE" in release|debug|profile) ;; *) echo "::error::build_mode must be release, debug or profile (got '$BUILD_MODE')"; exit 1;; esac
+          case "$ANDROID_SCAFFOLD" in auto|never) ;; *) echo "::error::android_scaffold must be auto or never (got '$ANDROID_SCAFFOLD')"; exit 1;; esac
+          # Log directory for failure diagnostics (uploaded only when the job fails).
+          echo "LOG_DIR=$RUNNER_TEMP/ci-logs" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/ci-logs"
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Check pubspec.yaml exists
+        run: |
+          test -f pubspec.yaml || { echo "::error::No pubspec.yaml in '${{ inputs.working_directory }}'. Set the working_directory input."; exit 1; }
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java_version }}
+
+      - name: Set up Flutter (SDK + pub cache)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ inputs.flutter_channel }}
+          flutter-version: ${{ inputs.flutter_version }}
+          cache: true
+          pub-cache: true
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ inputs.gradle_cache_read_only }}
+
+      - name: Toolchain fingerprint
+        id: fingerprint
+        run: |
+          flutter --version --machine > "$LOG_DIR/flutter-version.json"
+          FV=$(jq -r .frameworkVersion "$LOG_DIR/flutter-version.json")
+          echo "flutter_version=$FV" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Toolchain"
+            echo '```'
+            flutter --version
+            java -version 2>&1 | head -1
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install dependencies
+        run: flutter pub get 2>&1 | tee "$LOG_DIR/pub-get.log"
+        # bash is invoked with -eo pipefail by GitHub when `shell: bash` is set, so a failing pub get fails the step.
+
+      - name: Generate Android scaffold if missing
+        env:
+          ANDROID_SCAFFOLD: ${{ inputs.android_scaffold }}
+          SCAFFOLD_ARGS: ${{ inputs.scaffold_args }}
+        run: |
+          if [ -d android ]; then echo "android/ already present - nothing to generate."; exit 0; fi
+          if [ "$ANDROID_SCAFFOLD" = "never" ]; then
+            echo "::error::android/ is missing and android_scaffold=never."; exit 1
+          fi
+          # shellcheck disable=SC2086  # intentional word splitting of extra args
+          flutter create --platforms=android $SCAFFOLD_ARGS . 2>&1 | tee "$LOG_DIR/flutter-create.log"
+
+      - name: Pre-build command
+        if: ${{ inputs.pre_build_command != '' }}
+        env:
+          PRE_BUILD_COMMAND: ${{ inputs.pre_build_command }}
+        run: bash -eo pipefail -c "$PRE_BUILD_COMMAND" 2>&1 | tee "$LOG_DIR/pre-build.log"
+
+      - name: Analyze
+        if: ${{ inputs.run_analyze }}
+        env:
+          ANALYZE_ARGS: ${{ inputs.analyze_args }}
+        run: |
+          # shellcheck disable=SC2086
+          flutter analyze $ANALYZE_ARGS 2>&1 | tee "$LOG_DIR/analyze.log"
+
+      - name: Test
+        if: ${{ inputs.run_tests }}
+        run: |
+          if [ ! -d test ]; then echo "No test/ directory - skipping tests."; exit 0; fi
+          flutter test 2>&1 | tee "$LOG_DIR/test.log"
+
+      - name: Build APK
+        env:
+          BUILD_MODE: ${{ inputs.build_mode }}
+          BUILD_ARGS: ${{ inputs.build_args }}
+        run: |
+          # shellcheck disable=SC2086
+          flutter build apk "--$BUILD_MODE" $BUILD_ARGS 2>&1 | tee "$LOG_DIR/build.log"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.working_directory }}/build/app/outputs/flutter-apk/*.apk
+          if-no-files-found: error
+          retention-days: ${{ inputs.artifact_retention_days }}
+
+      - name: Summarize failure
+        if: ${{ failure() }}
+        run: |
+          {
+            echo "### Build failed - last lines of each log"
+            for f in "$LOG_DIR"/*.log; do
+              [ -f "$f" ] || continue
+              echo "<details><summary>$(basename "$f")</summary>"
+              echo
+              echo '```'
+              tail -n 60 "$f"
+              echo '```'
+              echo "</details>"
+            done
+            echo "Full logs: artifact \`ci-logs\` on this run."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload failure logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-logs
+          path: |
+            ${{ runner.temp }}/ci-logs
+            ${{ inputs.working_directory }}/build/app/reports
+          if-no-files-found: ignore
+          retention-days: 7
