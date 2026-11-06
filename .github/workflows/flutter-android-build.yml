@@ -232,6 +232,16 @@ jobs:
             done
             echo "Full logs: artifact \`ci-logs\` on this run."
           } >> "$GITHUB_STEP_SUMMARY"
+          # The most recently written log belongs to the failing step: expose its tail as an annotation
+          # (visible in the run UI, the PR checks and the REST API, with no artifact download needed).
+          last=$(find "$LOG_DIR" -name '*.log' -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -n 1 | cut -d' ' -f2- || true)
+          if [ -n "$last" ]; then
+            body=$(tail -n 40 "$last")
+            body=${body//'%'/'%25'}
+            body=${body//$'\r'/'%0D'}
+            body=${body//$'\n'/'%0A'}
+            echo "::error title=$(basename "$last") (last 40 lines)::$body"
+          fi
 
       - name: Upload failure logs
         if: ${{ failure() }}
