@@ -150,5 +150,11 @@ curl -sL -o logs.zip -H "Authorization: Bearer $GH_TOKEN" "https://api.github.co
 - Lessons that apply to all projects belong in the relevant skill (as the skills themselves ask); project facts belong in the target repo's `.agent/`.
 
 ## Verification status of this repository
-Verified: file structure, extraction completeness (all files from both archives present), `actionlint` 1.7.12 (with shellcheck) passes on both workflows, reusable-workflow syntax (`workflow_call`, inputs, outputs, permissions), action versions exist (checkout v7, setup-java v6, setup-gradle v6, upload-artifact v7, flutter-action v2).
-Not yet verified: an actual run on GitHub Actions (run `Smoke test` once), the inputs of `flutter-action` with an empty `flutter-version`, and a real call from another repository.
+Verified on GitHub Actions (PR #1, run on commit `9116e6f`): the `Smoke test` job calls the reusable workflow, which sets up Java 17 and Flutter (3.47.9, the latest stable at the time), generates the missing `android/`, analyzes, tests, builds a debug APK and uploads it as artifact `smoke-apk` (about 70 MB); the Flutter SDK, pub and Gradle caches are saved. The failure path was exercised too: the earlier red runs produced the `ci-logs` artifact and the log-tail annotation, which is how the `analysis_options.yaml` problem below was found.
+Also verified: `actionlint` 1.7.12 (with shellcheck) on both workflows; the skill files are identical to the uploaded archives; the gateway scripts run on a scratch repository; the action versions exist (checkout v7, setup-java v6, setup-gradle v6, upload-artifact v7, flutter-action v2).
+Not verified: a call from a different repository (the smoke test uses the local `./` form of `uses`; the cross-repo form differs only in the path), `release` mode (only `debug` was built), and a cache-hit run (see the note below once it has been done).
+
+Findings from the first real runs, now built into the workflow:
+- `flutter create` generates an `analysis_options.yaml` that includes `package:flutter_lints`; apps without that dependency failed analysis with `include_file_not_found`. The workflow now removes the generated file when the app had none of its own.
+- The cache is large: the Flutter SDK cache is about 1.6 GB and the Gradle caches about 1.3 GB, against GitHub's 10 GB per-repository limit. Several repositories using several Flutter versions will evict each other's caches (oldest unused first).
+- GitHub announced that `ubuntu-latest` migrates to Ubuntu 26 from 19 Oct 2026. Java is installed by the workflow, so this should be harmless; if a build breaks around then, compare the toolchain summary of a good and a bad run.
