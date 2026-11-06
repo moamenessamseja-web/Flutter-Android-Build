@@ -152,7 +152,9 @@ curl -sL -o logs.zip -H "Authorization: Bearer $GH_TOKEN" "https://api.github.co
 ## Verification status of this repository
 Verified on GitHub Actions (PR #1, run on commit `9116e6f`): the `Smoke test` job calls the reusable workflow, which sets up Java 17 and Flutter (3.47.9, the latest stable at the time), generates the missing `android/`, analyzes, tests, builds a debug APK and uploads it as artifact `smoke-apk` (about 70 MB); the Flutter SDK, pub and Gradle caches are saved. The failure path was exercised too: the earlier red runs produced the `ci-logs` artifact and the log-tail annotation, which is how the `analysis_options.yaml` problem below was found.
 Also verified: `actionlint` 1.7.12 (with shellcheck) on both workflows; the skill files are identical to the uploaded archives; the gateway scripts run on a scratch repository; the action versions exist (checkout v7, setup-java v6, setup-gradle v6, upload-artifact v7, flutter-action v2).
-Not verified: a call from a different repository (the smoke test uses the local `./` form of `uses`; the cross-repo form differs only in the path), `release` mode (only `debug` was built), and a cache-hit run (see the note below once it has been done).
+Not verified: a call from a different repository (the smoke test uses the local `./` form of `uses`; the cross-repo form differs only in the path), `release` mode (only `debug` was built), and Gradle/Flutter cache behaviour across different branches (caches are scoped per ref).
+
+Cache effect measured on the same ref (PR #1, same commit): cold run 5 min 48 s, warm re-run 2 min 16 s; the Build APK step dropped from 3 min 27 s to 1 min 03 s and Flutter setup from 65 s to 21 s.
 
 Findings from the first real runs, now built into the workflow:
 - `flutter create` generates an `analysis_options.yaml` that includes `package:flutter_lints`; apps without that dependency failed analysis with `include_file_not_found`. The workflow now removes the generated file when the app had none of its own.
