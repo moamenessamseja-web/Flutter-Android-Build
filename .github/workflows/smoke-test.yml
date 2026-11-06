@@ -1,0 +1,23 @@
+# Proves the reusable workflow works end to end by building fixtures/smoke_app
+# (a minimal Flutter app WITHOUT an android/ folder, so the scaffold path is exercised too).
+name: Smoke test (reusable workflow)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/flutter-android-build.yml"
+      - ".github/workflows/smoke-test.yml"
+      - "fixtures/smoke_app/**"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    uses: ./.github/workflows/flutter-android-build.yml
+    with:
+      working_directory: fixtures/smoke_app
+      build_mode: debug
+      artifact_name: smoke-apk
+      artifact_retention_days: 1
