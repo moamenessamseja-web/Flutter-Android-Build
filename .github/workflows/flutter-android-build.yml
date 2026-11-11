@@ -76,6 +76,11 @@ on:
         required: false
         type: number
         default: 14
+      fixed_debug_keystore:
+        description: "Sign debug-signed builds (debug mode, and release mode while the app has no release signing) with one fixed shared debug keystore, so every APK has the same signature and updates install over each other. Not a secret and not for publishing."
+        required: false
+        type: boolean
+        default: true
       gradle_cache_read_only:
         description: "true = never write the Gradle cache (setup-gradle defaults to read-only on non-default branches; this workflow defaults to false so feature branches also warm the cache)."
         required: false
@@ -93,6 +98,9 @@ on:
       flutter_version:
         description: "Flutter version actually used."
         value: ${{ jobs.build.outputs.flutter_version }}
+      signer_sha256:
+        description: "SHA-256 fingerprint of the certificate that signed the APK (same value across builds = installable as an update)."
+        value: ${{ jobs.build.outputs.signer_sha256 }}
 
 permissions:
   contents: read
@@ -105,6 +113,7 @@ jobs:
     outputs:
       artifact_name: ${{ inputs.artifact_name }}
       flutter_version: ${{ steps.fingerprint.outputs.flutter_version }}
+      signer_sha256: ${{ steps.apk.outputs.signer_sha256 }}
     defaults:
       run:
         shell: bash
@@ -182,8 +191,11 @@ jobs:
           # configuration: if it had none, drop the generated one.
           had_analysis_options=false
           [ -f analysis_options.yaml ] && had_analysis_options=true
+          # flutter create derives the project name from the directory name; the checkout directory is the
+          # repository name, which may not be a valid Dart package name (e.g. my-app). Use the pubspec name.
+          proj=$(sed -n 's/^name:[[:space:]]*//p' pubspec.yaml | head -n 1 | tr -d "\"' \r")
           # shellcheck disable=SC2086  # intentional word splitting of extra args
-          flutter create --platforms=android $SCAFFOLD_ARGS . 2>&1 | tee "$LOG_DIR/flutter-create.log"
+          flutter create --platforms=android --project-name "$proj" $SCAFFOLD_ARGS . 2>&1 | tee "$LOG_DIR/flutter-create.log"
           if [ "$had_analysis_options" = false ]; then rm -f analysis_options.yaml; fi
 
       - name: Pre-build command
@@ -206,6 +218,25 @@ jobs:
           if [ ! -d test ]; then echo "No test/ directory - skipping tests."; exit 0; fi
           flutter test 2>&1 | tee "$LOG_DIR/test.log"
 
+      - name: Install fixed debug keystore
+        if: ${{ inputs.fixed_debug_keystore }}
+        working-directory: ${{ github.workspace }}
+        run: |
+          # Public, shared debug key (alias androiddebugkey, password android). Without it every CI run
+          # generates a new random debug key, so Android refuses to install a build over the previous one.
+          # Gradle ignores ~/.android/debug.keystore on these runners (measured), so the key is injected
+          # explicitly through AGP's android.injected.signing.* properties, which apply to every variant.
+          ks="$RUNNER_TEMP/fixed-debug.keystore"
+          echo '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' | base64 -d > "$ks"
+          gh_home="${GRADLE_USER_HOME:-$HOME/.gradle}"
+          mkdir -p "$gh_home"
+          {
+            echo "android.injected.signing.store.file=$ks"
+            echo "android.injected.signing.store.password=android"
+            echo "android.injected.signing.key.alias=androiddebugkey"
+            echo "android.injected.signing.key.password=android"
+          } >> "$gh_home/gradle.properties"
+
       - name: Build APK
         env:
           BUILD_MODE: ${{ inputs.build_mode }}
@@ -213,6 +244,40 @@ jobs:
         run: |
           # shellcheck disable=SC2086
           flutter build apk "--$BUILD_MODE" $BUILD_ARGS 2>&1 | tee "$LOG_DIR/build.log"
+
+      - name: Report APK details
+        id: apk
+        env:
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          FIXED_DEBUG_KEYSTORE: ${{ inputs.fixed_debug_keystore }}
+        run: |
+          apk=$(find build/app/outputs/flutter-apk -maxdepth 1 -name '*.apk' | sort | head -n 1)
+          [ -n "$apk" ] || { echo "::error::No APK found after build"; exit 1; }
+          size=$(du -h "$apk" | cut -f1)
+          apk_sha=$(sha256sum "$apk" | cut -d' ' -f1)
+          signer="unavailable"
+          apksigner=$(find "${ANDROID_HOME:-/nonexistent}/build-tools" -name apksigner 2>/dev/null | sort -V | tail -n 1)
+          if [ -n "$apksigner" ]; then
+            signer=$("$apksigner" verify --print-certs "$apk" 2>/dev/null | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)
+            [ -n "$signer" ] || signer="unavailable"
+          fi
+          echo "signer_sha256=$signer" >> "$GITHUB_OUTPUT"
+          pkg="unavailable"
+          aapt2=$(find "${ANDROID_HOME:-/nonexistent}/build-tools" -name aapt2 2>/dev/null | sort -V | tail -n 1)
+          if [ -n "$aapt2" ]; then pkg=$("$aapt2" dump packagename "$apk" 2>/dev/null || true); [ -n "$pkg" ] || pkg="unavailable"; fi
+          expected="136966601854d1bd1397841d7d5ef10f1145bd8ac71c49f8ac6812857f136233"
+          if [ "$FIXED_DEBUG_KEYSTORE" = "true" ] && [ "$signer" != "unavailable" ] && [ "$signer" != "$expected" ]; then
+            echo "::warning title=Signing key differs from the fixed debug key::signer=$signer expected=$expected. The app may define its own signing config; set fixed_debug_keystore=false if that is intended."
+          fi
+          echo "::notice title=APK ready::commit=${COMMIT_SHA} package=$pkg file=$(basename "$apk") size=$size apk_sha256=$apk_sha signer_sha256=$signer"
+          {
+            echo "### APK"
+            echo "- commit: \`${COMMIT_SHA}\`"
+            echo "- package (applicationId): \`$pkg\`"
+            echo "- file: \`$(basename "$apk")\` ($size)"
+            echo "- APK SHA-256: \`$apk_sha\`"
+            echo "- signing certificate SHA-256: \`$signer\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v7

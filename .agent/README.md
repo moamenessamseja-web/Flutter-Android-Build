@@ -12,7 +12,7 @@ Reusable engineering rules, skills and CI for all of the owner's repositories (m
    Start gate: `bash $GW/.skills/engineer-in-charge/scripts/orient.sh <target-repo-dir>`.
    No `.agent/` there yet? `python3 $GW/.skills/engineer-in-charge/scripts/init_agent.py --project "<name>" --stack "Flutter/Android" --repo <target-repo-dir>` (copies the templates, never overwrites existing files), then fill `BRIEF.md` with the owner's words verbatim.
 6. **Implement** in small verified steps on a branch (never on the default branch).
-7. **Deliver:** commit -> push branch -> open a Pull Request -> the target's caller workflow builds the APK through the central reusable workflow -> report PR link, run result, artifact name, and what is NOT verified.
+7. **Deliver** (full recipe in `RUN.md`): commit -> push branch -> open a Pull Request -> the target's caller workflow builds the APK through the central reusable workflow -> report PR link, run result, artifact name, and what is NOT verified.
    Stop gate before reporting: `python3 $GW/.skills/engineer-in-charge/scripts/stop_gate.py` (run inside the target repo) must print `HANDOFF OK`.
 
 ## Skills and when to activate each
@@ -32,6 +32,8 @@ Notes on `flutter-ci-engineering`: its `references/manager-assistant.md` contain
 | Reusable Flutter Android build | `.github/workflows/flutter-android-build.yml` |
 | Workflow self-test (builds `fixtures/smoke_app`) | `.github/workflows/smoke-test.yml` |
 | Snippet to put in a target repo so agents find this gateway | `.agent/TARGET_REPO_AGENTS.md` |
+| Idea -> new repo -> green build -> report (the recipe) | `.agent/RUN.md` |
+| Template repository for new apps | https://github.com/moamenessamseja-web/Flutter-App-Template |
 | Authentication and access | `.agent/ACCESS.md` |
 | Human manual | `README.md` |
 
