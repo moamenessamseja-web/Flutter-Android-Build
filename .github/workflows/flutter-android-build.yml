@@ -262,14 +262,18 @@ jobs:
             [ -n "$signer" ] || signer="unavailable"
           fi
           echo "signer_sha256=$signer" >> "$GITHUB_OUTPUT"
+          pkg="unavailable"
+          aapt2=$(find "${ANDROID_HOME:-/nonexistent}/build-tools" -name aapt2 2>/dev/null | sort -V | tail -n 1)
+          if [ -n "$aapt2" ]; then pkg=$("$aapt2" dump packagename "$apk" 2>/dev/null || true); [ -n "$pkg" ] || pkg="unavailable"; fi
           expected="136966601854d1bd1397841d7d5ef10f1145bd8ac71c49f8ac6812857f136233"
           if [ "$FIXED_DEBUG_KEYSTORE" = "true" ] && [ "$signer" != "unavailable" ] && [ "$signer" != "$expected" ]; then
             echo "::warning title=Signing key differs from the fixed debug key::signer=$signer expected=$expected. The app may define its own signing config; set fixed_debug_keystore=false if that is intended."
           fi
-          echo "::notice title=APK ready::commit=${COMMIT_SHA} file=$(basename "$apk") size=$size apk_sha256=$apk_sha signer_sha256=$signer"
+          echo "::notice title=APK ready::commit=${COMMIT_SHA} package=$pkg file=$(basename "$apk") size=$size apk_sha256=$apk_sha signer_sha256=$signer"
           {
             echo "### APK"
             echo "- commit: \`${COMMIT_SHA}\`"
+            echo "- package (applicationId): \`$pkg\`"
             echo "- file: \`$(basename "$apk")\` ($size)"
             echo "- APK SHA-256: \`$apk_sha\`"
             echo "- signing certificate SHA-256: \`$signer\`"
