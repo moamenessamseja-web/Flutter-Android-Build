@@ -19,6 +19,7 @@ AGENTS.md                         entry point read by most coding agents -> poin
   README.md                       the path every agent follows + when to use which skill
   ACCESS.md                       how to fetch the gateway; agent auth vs repo access vs workflow permissions
   TARGET_REPO_AGENTS.md           snippet to copy into a target repo as its AGENTS.md
+  RUN.md                          the recipe: idea -> new repo from the template -> green build -> report
 .skills/
   engineer-in-charge/             method, start/stop gates, scripts, and the .agent/ templates (assets/agent-templates/)
   flutter-ci-engineering/         Flutter + GitHub Actions workflow, CI scripts, lessons
@@ -48,6 +49,7 @@ The skills were extracted from the uploaded archives without content changes. Di
 Example task from a phone: *"In repo X add a dark-mode toggle to settings."* The agent clones the gateway, runs `orient.sh` on X, reads X's `.agent/`, reads `design/DESIGN.md`, implements on a branch, opens a PR, and reports the PR link plus the APK artifact from the CI run.
 
 ## 6. Connect another Flutter repository
+**New apps:** do not copy anything by hand. Create the repository from the public template [Flutter-App-Template](https://github.com/moamenessamseja-web/Flutter-App-Template) (it already contains the caller workflow with a pinned Flutter version, `AGENTS.md` and a minimal app); `.agent/RUN.md` has the exact commands. **Existing apps:**
 1. Make sure this repository's workflow is usable: it is public, so nothing to enable. (If it becomes private: *Settings -> Actions -> General -> Access* -> allow access from your other repositories.)
 2. In the app repository add `.github/workflows/build-apk.yml` (see section 7). The name `build-apk.yml` matters: `flutter-ci-engineering/scripts/gh_ci.sh push-run` dispatches that file by default.
 3. Commit `pubspec.lock` (the pub cache key uses its hash).
@@ -97,17 +99,25 @@ All inputs (defaults in brackets):
 | `run_tests` [true] | `flutter test`; skipped if there is no `test/` directory |
 | `build_args` [""] | Extra `flutter build apk` args, e.g. `--build-number=42` |
 | `artifact_name` [android-apk], `artifact_retention_days` [14] | APK artifact |
+| `fixed_debug_keystore` [true] | Sign with one fixed, public debug key so every APK has the same signature (see section 7a) |
 | `gradle_cache_read_only` [false] | See caching |
 | `timeout_minutes` [30] | Job timeout |
 
-Outputs: `artifact_name`, `flutter_version` (version actually used).
+Outputs: `artifact_name`, `flutter_version` (version actually used), `signer_sha256` (fingerprint of the signing certificate).
+
+Every run also publishes an `APK ready` annotation and summary with the built commit, the package name (applicationId), size, APK SHA-256 and signing fingerprint; a mismatch with the fixed key raises a warning. The annotation is readable through the API (`check-runs/<job>/annotations`), no artifact download needed.
+
+`flutter create` is run with `--project-name` taken from `pubspec.yaml`, because it would otherwise use the checkout directory (the repository name, which can contain hyphens that are not valid in a Dart package name). The generated `analysis_options.yaml` is discarded when the app has none of its own.
 
 Release-mode APKs use whatever signing the app's Android project defines (Flutter's default template signs with the debug key). Production signing is not part of this workflow.
+
+### 7a. Signing
+Debug-signed APKs (debug mode, and release mode until an app defines real release signing) are signed with one shared key stored in the workflow (alias `androiddebugkey`, password `android`, certificate SHA-256 `136966601854d1bd1397841d7d5ef10f1145bd8ac71c49f8ac6812857f136233`). Without it each CI run generates a random debug key and Android refuses to install a build over the previous one. The key is public and shared between all your apps: fine for testing on your own phone, not for publishing (anyone could sign an update to your sideloaded app). Gradle ignored `~/.android/debug.keystore` on the runner (measured: three different fingerprints in three runs), so the key is injected through the `android.injected.signing.*` Gradle properties. Real release signing (a private key in repository secrets) is a later step; set `fixed_debug_keystore: false` when an app brings its own signing config.
 
 ## 8. Caching
 - **Flutter SDK + pub cache:** `subosito/flutter-action@v2` with `cache: true` and `pub-cache: true`. The SDK cache key follows channel/version/architecture; the pub cache key additionally appends the hash of `pubspec.lock`. With an unpinned version the SDK cache changes whenever a new release appears.
 - **Gradle:** `gradle/actions/setup-gradle@v6` caches `~/.gradle`. Its own default is read-only on branches other than the default branch; this workflow sets `cache-read-only: false` so feature-branch/PR builds also save a cache. Set `gradle_cache_read_only: true` to stop that.
-- GitHub scoping: a branch can read caches from itself and the default branch, not from sibling branches. Total cache is limited (10 GB per repository) and unused entries expire after 7 days, so the first build after a quiet week is slow.
+- GitHub scoping: a branch can read caches from itself and the default branch, not from sibling branches. The limit is 10 GB **per repository** (each app repository has its own, they do not compete), and unused entries expire after 7 days, so the first build of a new repository, or after a quiet week, is cold (about 6 minutes instead of 2-3).
 - Check the "Post ..." steps and the Gradle job summary of a run to see hits/misses.
 
 ## 9. Branches, commits, Pull Requests
@@ -150,13 +160,13 @@ curl -sL -o logs.zip -H "Authorization: Bearer $GH_TOKEN" "https://api.github.co
 - Lessons that apply to all projects belong in the relevant skill (as the skills themselves ask); project facts belong in the target repo's `.agent/`.
 
 ## Verification status of this repository
-Verified on GitHub Actions (PR #1, run on commit `9116e6f`): the `Smoke test` job calls the reusable workflow, which sets up Java 17 and Flutter (3.47.9, the latest stable at the time), generates the missing `android/`, analyzes, tests, builds a debug APK and uploads it as artifact `smoke-apk` (about 70 MB); the Flutter SDK, pub and Gradle caches are saved. The failure path was exercised too: the earlier red runs produced the `ci-logs` artifact and the log-tail annotation, which is how the `analysis_options.yaml` problem below was found.
-Also verified: `actionlint` 1.7.12 (with shellcheck) on both workflows; the skill files are identical to the uploaded archives; the gateway scripts run on a scratch repository; the action versions exist (checkout v7, setup-java v6, setup-gradle v6, upload-artifact v7, flutter-action v2).
-Not verified: a call from a different repository (the smoke test uses the local `./` form of `uses`; the cross-repo form differs only in the path), `release` mode (only `debug` was built), and Gradle/Flutter cache behaviour across different branches (caches are scoped per ref).
+Verified on GitHub Actions:
+- Reusable workflow built the smoke app (debug) and a template-generated app (release, 42 MB), including generating `android/`, analyze, test, APK upload, failure diagnostics (annotation + `ci-logs` artifact).
+- **Cross-repository call:** a repository generated from the template (name with hyphens) called this workflow from another repository, built green, and reported `package=com.moamen.<pubspec name>`.
+- **Stable signing:** three consecutive runs produced the same certificate fingerprint (and, for the same commit, a bit-identical APK).
+- Cache effect on the same ref: cold 5 min 48 s, warm 2 min 16 s.
+- `actionlint` 1.7.12 with shellcheck; skill files identical to the uploaded archives; gateway scripts run on a scratch repository; `gh_ci.sh wait` works against a template repository.
 
-Cache effect measured on the same ref (PR #1, same commit): cold run 5 min 48 s, warm re-run 2 min 16 s; the Build APK step dropped from 3 min 27 s to 1 min 03 s and Flutter setup from 65 s to 21 s.
+Not verified: installing the APK on a device (the owner does that), release signing with a private key, and apps with native plugins that need Android changes (use `pre_build_command`).
 
-Findings from the first real runs, now built into the workflow:
-- `flutter create` generates an `analysis_options.yaml` that includes `package:flutter_lints`; apps without that dependency failed analysis with `include_file_not_found`. The workflow now removes the generated file when the app had none of its own.
-- The cache is large: the Flutter SDK cache is about 1.6 GB and the Gradle caches about 1.3 GB, against GitHub's 10 GB per-repository limit. Several repositories using several Flutter versions will evict each other's caches (oldest unused first).
-- GitHub announced that `ubuntu-latest` migrates to Ubuntu 26 from 19 Oct 2026. Java is installed by the workflow, so this should be harmless; if a build breaks around then, compare the toolchain summary of a good and a bad run.
+Lessons from the real runs that are built into the workflow: `flutter create` generates an `analysis_options.yaml` referencing `flutter_lints` (analysis failed) and takes the project name from the directory; Gradle ignored the default debug keystore location; the Flutter SDK cache is about 1.6 GB and the Gradle cache about 1.3 GB per repository. GitHub announced that `ubuntu-latest` moves to Ubuntu 26 from 19 Oct 2026; Java is installed by the workflow, so this should be harmless.
