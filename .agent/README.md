@@ -1,7 +1,7 @@
 # Central agent gateway
 
 Reusable engineering rules, skills and CI for all of the owner's repositories (mainly Flutter/Android).
-**This folder holds instructions only.** Project state (`IMPLEMENTATION_STATE`, `HANDOFF`, `CHANGELOG`, ...) lives in each *target* repository's own `.agent/` folder, created from the templates below. Never put project state, tokens or app data here.
+**This folder holds instructions only.** Project state (`IMPLEMENTATION_STATE`, `HANDOFF`, `CHANGELOG`, ...) lives in each *target* repository's own `.agent/` folder, created from the templates below. Never put project state, tokens or app data here.If your harnessor your environment has no bash/git, follow  .agent/HTTP_ONLY.md  instead. 
 
 ## The path every agent follows
 1. **Get this repository** (public, no token needed): `git clone --depth 1 https://github.com/moamenessamseja-web/Flutter-Android-Build.git /tmp/gateway`. Below, `$GW=/tmp/gateway`. (Details and alternatives: `ACCESS.md`.)
