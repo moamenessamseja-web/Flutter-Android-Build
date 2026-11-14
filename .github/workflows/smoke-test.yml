@@ -1,5 +1,6 @@
 # Proves the reusable workflow works end to end by building fixtures/smoke_app
 # (a minimal Flutter app WITHOUT an android/ folder, so the scaffold path is exercised too).
+# Each job covers one code path; verify-signing turns the signing behaviour into assertions.
 name: Smoke test (reusable workflow)
 
 on:
@@ -12,9 +13,25 @@ on:
 permissions:
   contents: read
 
+env:
+  FIXED_SIGNER_SHA256: "136966601854d1bd1397841d7d5ef10f1145bd8ac71c49f8ac6812857f136233"
+
 jobs:
+  lint:
+    name: actionlint (workflows + shell)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Run actionlint 1.7.12
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color
+
   pinned:
-    name: Pinned toolchain (must pass)
+    name: Pinned toolchain, debug (must pass)
     uses: ./.github/workflows/flutter-android-build.yml
     with:
       working_directory: fixtures/smoke_app
@@ -22,3 +39,54 @@ jobs:
       build_mode: debug
       artifact_name: smoke-apk-pinned
       artifact_retention_days: 1
+
+  release-mode:
+    name: Release mode path
+    uses: ./.github/workflows/flutter-android-build.yml
+    with:
+      working_directory: fixtures/smoke_app
+      flutter_version: "3.47.9"
+      build_mode: release
+      artifact_name: smoke-apk-release
+      artifact_retention_days: 1
+
+  pre-build:
+    name: pre_build_command path (runs after the scaffold, in working_directory)
+    uses: ./.github/workflows/flutter-android-build.yml
+    with:
+      working_directory: fixtures/smoke_app
+      flutter_version: "3.47.9"
+      build_mode: debug
+      pre_build_command: "test -f pubspec.yaml && test -d android && echo pre-build-hook-ok"
+      artifact_name: smoke-apk-prebuild
+      artifact_retention_days: 1
+
+  own-signing:
+    name: fixed_debug_keystore=false path
+    uses: ./.github/workflows/flutter-android-build.yml
+    with:
+      working_directory: fixtures/smoke_app
+      flutter_version: "3.47.9"
+      build_mode: debug
+      fixed_debug_keystore: false
+      artifact_name: smoke-apk-ownsigning
+      artifact_retention_days: 1
+
+  verify-signing:
+    name: Signing assertions
+    needs: [pinned, release-mode, own-signing]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Assert fixed key in debug and release, a different key when disabled
+        env:
+          PINNED: ${{ needs.pinned.outputs.signer_sha256 }}
+          RELEASE: ${{ needs.release-mode.outputs.signer_sha256 }}
+          OWN: ${{ needs.own-signing.outputs.signer_sha256 }}
+        run: |
+          echo "pinned=$PINNED"; echo "release=$RELEASE"; echo "own=$OWN"; echo "expected=$FIXED_SIGNER_SHA256"
+          fail=0
+          [ "$PINNED" = "$FIXED_SIGNER_SHA256" ]  || { echo "::error::debug build is not signed with the fixed key"; fail=1; }
+          [ "$RELEASE" = "$FIXED_SIGNER_SHA256" ] || { echo "::error::release build is not signed with the fixed key"; fail=1; }
+          { [ -n "$OWN" ] && [ "$OWN" != "unavailable" ] && [ "$OWN" != "$FIXED_SIGNER_SHA256" ]; } || { echo "::error::fixed_debug_keystore=false must produce a different, readable signer"; fail=1; }
+          exit "$fail"

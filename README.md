@@ -96,6 +96,8 @@ All inputs (defaults in brackets):
 
 Outputs: `artifact_name`, `flutter_version` (version actually used), `signer_sha256` (fingerprint of the signing certificate).
 
+`pubspec.yaml`'s `name` must be lowercase snake_case (e.g. `my_app`); the build stops early with a clear error otherwise, because the applicationId is derived from it. With `--split-per-abi` in `build_args` the artifact contains every ABI, but the `APK ready` report describes only the first APK alphabetically; install the one matching the phone (usually `arm64-v8a`).
+
 Every run also publishes an `APK ready` annotation and summary with the built commit, the package name (applicationId), size, APK SHA-256 and signing fingerprint; a mismatch with the fixed key raises a warning. The annotation is readable through the API (`check-runs/<job>/annotations`), no artifact download needed.
 
 `flutter create` is run with `--project-name` taken from `pubspec.yaml`, because it would otherwise use the checkout directory (the repository name, which can contain hyphens that are not valid in a Dart package name). The generated `analysis_options.yaml` is discarded when the app has none of its own.
