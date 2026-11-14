@@ -72,7 +72,9 @@ curl -fsSL https://raw.githubusercontent.com/moamenessamseja-web/Flutter-Android
 ```
 The app repositories created from `Flutter-App-Template` already contain the same file; when the ready file changes, update the template's copy too.
 
-`@main` always uses the latest central version. For a frozen pipeline, reference a commit SHA (no release tags exist yet).
+The caller pins a release tag (`@v1.0.0`), so a change to this repository cannot break your apps until you move them to a newer tag; `@main` would follow every change immediately. Releases: https://github.com/moamenessamseja-web/Flutter-Android-Build/releases.
+
+**Upgrade process:** change the gateway on a branch -> `Smoke test` green on that PR -> merge -> new tag (e.g. `v1.0.1`) -> update the ref in ONE app first (its `build-apk.yml`: both `uses:` lines and `gateway_ref`), build it -> if green, update the other apps and `.agent/templates/build-apk.yml` (and the template repository's copy).
 
 All inputs (defaults in brackets):
 
@@ -152,7 +154,7 @@ curl -sL -o logs.zip -H "Authorization: Bearer $GH_TOKEN" "https://api.github.co
 ## 12. Extending the gateway
 - **New skill:** add `.skills/<name>/SKILL.md` (frontmatter `name`, `description`), keep its files together, add one row to the table in `.agent/README.md` and section 4 here.
 - **New workflow** (e.g. app bundle, signing): add `.github/workflows/<name>.yml` with `on: workflow_call`, declare inputs/permissions explicitly, lint it, add a smoke job.
-- **Change the Android build:** edit the one workflow; callers pick it up on `@main`. Run the smoke test (Actions -> "Smoke test" -> Run workflow) before relying on it.
+- **Change the Android build:** edit the one workflow on a branch, then follow the upgrade process in section 7 (new tag, one app first). Run the smoke test (Actions -> "Smoke test" -> Run workflow) before relying on it.
 - Lessons that apply to all projects belong in the relevant skill (as the skills themselves ask); project facts belong in the target repo's `.agent/`.
 
 ## Verification status of this repository
