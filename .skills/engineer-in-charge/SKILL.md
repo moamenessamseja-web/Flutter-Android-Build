@@ -104,6 +104,8 @@ that separates them · strike 4 escalate to the owner with evidence and 1–2 op
 Anti-patterns: weakening a test, commenting out the failing code, retrying the identical command, noisy polling, "improving" unrelated code while waiting,
 re-deriving decisions already in `DECISIONS.md`. Budget guards: cap outputs (`head`, `sed -n`), one logical step per bash call, no re-reading.
 
+loop_guard state lives in /tmp and is session-scoped by design. The cross-session guard is `LESSONS.md`: after `reset`, write the lesson there, because the next session starts at strike 0. Do not move loop state into `.agent/` unless a loop is observed spanning two sessions — that would be architecture without a demonstrated limitation.
+
 ## 8. Reporting to the owner
 Short, structured, in their language, **no narration of the process**. Order: what to test now (exact build/tag) → what was done (one status each) →
 what was verified and at which level → what is NOT done / unknown → decisions needed → security note (e.g. "revoke the token you pasted") if relevant.
