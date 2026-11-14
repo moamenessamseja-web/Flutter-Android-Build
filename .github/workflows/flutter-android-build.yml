@@ -62,7 +62,7 @@ on:
         type: boolean
         default: true
       build_args:
-        description: "Extra arguments for `flutter build apk` (e.g. --build-number=42 --dart-define=ENV=prod)."
+        description: "Extra arguments for `flutter build apk` (e.g. --build-number=42 --dart-define=ENV=prod). With --split-per-abi the artifact contains every ABI, but the APK ready report describes only the first APK alphabetically; install the one matching the device (usually arm64-v8a)."
         required: false
         type: string
         default: ""
@@ -136,9 +136,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Check pubspec.yaml exists
+      - name: Check pubspec.yaml and package name
         run: |
           test -f pubspec.yaml || { echo "::error::No pubspec.yaml in '${{ inputs.working_directory }}'. Set the working_directory input."; exit 1; }
+          proj=$(sed -n 's/^name:[[:space:]]*//p' pubspec.yaml | sed 's/[[:space:]]*#.*$//' | head -n 1 | tr -d "\"' \r")
+          if ! printf '%s' "$proj" | grep -Eq '^[a-z][a-z0-9_]*$'; then
+            echo "::error::Invalid Dart package name in pubspec.yaml: '$proj' (expected lowercase snake_case, e.g. my_app). The Android applicationId is derived from it."; exit 1
+          fi
 
       - name: Set up Java
         uses: actions/setup-java@v6
@@ -196,7 +200,7 @@ jobs:
           [ -d test ] && had_test_dir=true
           # flutter create derives the project name from the directory name; the checkout directory is the
           # repository name, which may not be a valid Dart package name (e.g. my-app). Use the pubspec name.
-          proj=$(sed -n 's/^name:[[:space:]]*//p' pubspec.yaml | head -n 1 | tr -d "\"' \r")
+          proj=$(sed -n 's/^name:[[:space:]]*//p' pubspec.yaml | sed 's/[[:space:]]*#.*$//' | head -n 1 | tr -d "\"' \r")
           # shellcheck disable=SC2086  # intentional word splitting of extra args
           flutter create --platforms=android --project-name "$proj" $SCAFFOLD_ARGS . 2>&1 | tee "$LOG_DIR/flutter-create.log"
           if [ "$had_analysis_options" = false ]; then rm -f analysis_options.yaml; fi
@@ -327,7 +331,7 @@ jobs:
             body=${body//'%'/'%25'}
             body=${body//$'\r'/'%0D'}
             body=${body//$'\n'/'%0A'}
-            echo "::error title=$(basename "$last") (last 40 lines)::$body"
+            echo "::error title=Last log written: $(basename "$last") (last 40 lines; may belong to an earlier step if the failing step writes no log)::$body"
           fi
 
       - name: Upload failure logs

@@ -64,7 +64,7 @@ trigger CI, so this costs nothing.
    build ran ZERO tests. This pipeline produces artifacts, NOT releases: `gh_ci.sh log` / `notes` / `download` read release assets and only apply to
    legacy pipelines that publish releases (they return 404 on the central workflow). Inspect the APK (`apk_compare.py`) only if you could obtain it,
    update the 4 handoff files, commit/push docs, then continue.
-   **Red →** `gh_ci.sh result <branch>` prints the failure annotation (title = the log file, message = its last 40 lines); full logs are in the
+   **Red →** `gh_ci.sh result <branch>` prints the failure annotation (title names the last log written, message = its last 40 lines; the failing step may have written no log, so the plain `failure` annotation next to it carries the step's own error); full logs are in the
    artifact `ci-logs`. Read the actual error; find the root cause (one bad export can print 15 symptoms); fix; repeat.
    Two reds in a row on the same symptom ⇒ stop patching and form a hypothesis from evidence (§7).
 8. Branch builds use `workflow_dispatch`; never push to `main` "just to check". Merge to `main` only when the owner has device-confirmed.
