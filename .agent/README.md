@@ -1,7 +1,9 @@
 # Central agent gateway
 
 Reusable engineering rules, skills and CI for all of the owner's repositories (mainly Flutter/Android).
-**This folder holds instructions only.** Project state (`IMPLEMENTATION_STATE`, `HANDOFF`, `CHANGELOG`, ...) lives in each *target* repository's own `.agent/` folder, created from the templates below. Never put project state, tokens or app data here.If your harnessor your environment has no bash/git, follow  .agent/HTTP_ONLY.md  instead. 
+**This folder holds instructions only.** Project state (`IMPLEMENTATION_STATE`, `HANDOFF`, `CHANGELOG`, ...) lives in each *target* repository's own `.agent/` folder, created from the templates below. Never put project state, tokens or app data here.
+
+**No bash/git in your harness?** Follow `HTTP_ONLY.md` (this folder) for every git/shell step below; everything else (read the skills, inspect the target, branch + PR, report) is unchanged.
 
 ## The path every agent follows
 1. **Get this repository** (public, no token needed): `git clone --depth 1 https://github.com/moamenessamseja-web/Flutter-Android-Build.git /tmp/gateway`. Below, `$GW=/tmp/gateway`. (Details and alternatives: `ACCESS.md`.)
@@ -33,6 +35,8 @@ Notes on `flutter-ci-engineering`: its `references/manager-assistant.md` contain
 | Workflow self-test (builds `fixtures/smoke_app`) | `.github/workflows/smoke-test.yml` |
 | Snippet to put in a target repo so agents find this gateway | `.agent/TARGET_REPO_AGENTS.md` |
 | Idea -> new repo -> green build -> report (the recipe) | `.agent/RUN.md` |
+| Same, for harnesses with no bash/git (GitHub REST API only) | `.agent/HTTP_ONLY.md` |
+| Ready caller workflow to copy into an app repo | `.agent/templates/build-apk.yml` |
 | Template repository for new apps | https://github.com/moamenessamseja-web/Flutter-App-Template |
 | Authentication and access | `.agent/ACCESS.md` |
 | Human manual | `README.md` |

@@ -20,6 +20,8 @@ AGENTS.md                         entry point read by most coding agents -> poin
   ACCESS.md                       how to fetch the gateway; agent auth vs repo access vs workflow permissions
   TARGET_REPO_AGENTS.md           snippet to copy into a target repo as its AGENTS.md
   RUN.md                          the recipe: idea -> new repo from the template -> green build -> report
+  HTTP_ONLY.md                    the same recipe for harnesses with no bash/git (GitHub REST API only)
+  templates/build-apk.yml         ready caller workflow for an app repository (single source)
 .skills/
   engineer-in-charge/             method, start/stop gates, scripts, and the .agent/ templates (assets/agent-templates/)
   flutter-ci-engineering/         Flutter + GitHub Actions workflow, CI scripts, lessons
@@ -42,45 +44,29 @@ The skills were extracted from the uploaded archives without content changes. Di
 - The uploaded "design" material was a single file (`design 2.md`), not a package. It was moved unchanged to `.skills/design/DESIGN.md` and a short `SKILL.md` was added so it works as a skill.
 - The two zip files were removed after extraction (they remain in Git history).
 - `flutter-ci-engineering/references/manager-assistant.md` describes one specific project; it is kept as supplied and marked as project-specific in `.agent/README.md`.
+- `engineer-in-charge/references/harness-tools.md` got a new section 7, "Minimum capability contract", at the owner's request (what any harness needs, and one row per harness); sections 1-6 are unchanged.
 
 ## 5. How an agent enters and navigates
 `AGENTS.md` -> `.agent/README.md` -> `engineer-in-charge/SKILL.md` -> other skills as needed -> inspect the target repo -> implement -> branch/commit/push/PR -> CI -> report. The agent retrieves the gateway with `git clone --depth 1 https://github.com/moamenessamseja-web/Flutter-Android-Build.git /tmp/gateway` (public repo, no token). GitHub Actions does **not** hand skills to an agent; the clone is the mechanism. To make agents find the gateway automatically, put `.agent/TARGET_REPO_AGENTS.md` in each target repo as `AGENTS.md`.
+
+**No bash or git?** An agent that only has an HTTP tool follows `.agent/HTTP_ONLY.md`: it reads the gateway files through `raw.githubusercontent.com` and does clone/commit/push/PR/build/report through the GitHub REST API. `.agent/HTTP_ONLY.md` is also copied into every app created from the template, which is where the target repo's `AGENTS.md` sends such an agent.
 
 Example task from a phone: *"In repo X add a dark-mode toggle to settings."* The agent clones the gateway, runs `orient.sh` on X, reads X's `.agent/`, reads `design/DESIGN.md`, implements on a branch, opens a PR, and reports the PR link plus the APK artifact from the CI run.
 
 ## 6. Connect another Flutter repository
 **New apps:** do not copy anything by hand. Create the repository from the public template [Flutter-App-Template](https://github.com/moamenessamseja-web/Flutter-App-Template) (it already contains the caller workflow with a pinned Flutter version, `AGENTS.md` and a minimal app); `.agent/RUN.md` has the exact commands. **Existing apps:**
 1. Make sure this repository's workflow is usable: it is public, so nothing to enable. (If it becomes private: *Settings -> Actions -> General -> Access* -> allow access from your other repositories.)
-2. In the app repository add `.github/workflows/build-apk.yml` (see section 7). The name `build-apk.yml` matters: `flutter-ci-engineering/scripts/gh_ci.sh push-run` dispatches that file by default.
+2. In the app repository add `.github/workflows/build-apk.yml` as an unchanged copy of the ready file `.agent/templates/build-apk.yml` (section 7). The name `build-apk.yml` matters: `flutter-ci-engineering/scripts/gh_ci.sh push-run` dispatches that file by default.
 3. Commit `pubspec.lock` (the pub cache key uses its hash).
-4. Optional: copy `.agent/TARGET_REPO_AGENTS.md` into the repo as `AGENTS.md`.
+4. Optional: copy the block of `.agent/TARGET_REPO_AGENTS.md` (between the `---` lines) into the repo as `AGENTS.md`, and `.agent/HTTP_ONLY.md` to the repo's `.agent/HTTP_ONLY.md` (the `AGENTS.md` block refers to it).
 
 ## 7. Caller workflow
-Minimal:
-```yaml
-name: Build Android
-
-on:
-  pull_request:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-
-concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
-
-jobs:
-  android:
-    uses: moamenessamseja-web/Flutter-Android-Build/.github/workflows/flutter-android-build.yml@main
-    with:
-      flutter_version: "3.47.9"   # pin it; empty = latest of the channel
-      build_mode: release
-    secrets: inherit
+The ready file is [`.agent/templates/build-apk.yml`](.agent/templates/build-apk.yml); copy it unchanged (it is the single source, this README does not repeat its content). It triggers on pull requests, pushes to `main` and manual dispatch, pins `flutter_version: "3.47.9"`, builds `release`, passes `--org com.moamen` to the scaffold, and passes no secrets because the workflow uses none. Fetch it with, for example:
+```bash
+curl -fsSL https://raw.githubusercontent.com/moamenessamseja-web/Flutter-Android-Build/main/.agent/templates/build-apk.yml -o .github/workflows/build-apk.yml
 ```
+The app repositories created from `Flutter-App-Template` already contain the same file; when the ready file changes, update the template's copy too.
+
 `@main` always uses the latest central version. For a frozen pipeline, reference a commit SHA (no release tags exist yet).
 
 All inputs (defaults in brackets):
@@ -127,7 +113,7 @@ Agents work on a dedicated branch (e.g. `agent/<short-task>`), one concern per c
 See `.agent/ACCESS.md`. In short:
 - Agent token (fine-grained PAT, or whatever the agent platform stores as `AGENT_CLOUD_SONNET`): Contents RW, Pull requests RW, Actions RW, Metadata R on the target repos. An Actions secret is only visible to workflow runs, not to an external agent.
 - Caller workflow: `permissions: contents: read` is enough.
-- `secrets: inherit` forwards the caller repo's secrets only.
+- The caller passes no secrets (the workflow uses none). `secrets: inherit` would forward the caller repo's secrets only, never this repository's.
 - Never print or commit tokens.
 
 ## 11. Troubleshooting
@@ -167,6 +153,8 @@ Verified on GitHub Actions:
 - Cache effect on the same ref: cold 5 min 48 s, warm 2 min 16 s.
 - `actionlint` 1.7.12 with shellcheck; skill files identical to the uploaded archives; gateway scripts run on a scratch repository; `gh_ci.sh wait` works against a template repository.
 
-Not verified: installing the APK on a device (the owner does that), release signing with a private key, and apps with native plugins that need Android changes (use `pre_build_command`).
+- **HTTP-only path:** every step of `.agent/HTTP_ONLY.md` sections 8, 1a, 2, 1, 3, 4, 5, 6 and 7 was executed with REST calls only (no git): repository generated from the template, single-file commit, multi-file Git Data commit, pull request, build matched by `head_sha`, annotations and artifact listing. The build that went green was exactly the commit written through the API, with `package=com.moamen.http_test`.
+
+Not verified: installing the APK on a device (the owner does that), release signing with a private key, and apps with native plugins that need Android changes (use `pre_build_command`). Also not verified: downloading the artifact zip through the redirect (my sandbox cannot reach the blob host) and the unchanged bash/git path for the three skills' scripts beyond `init_agent.py`, `orient.sh`, `agent_audit.py` and `gh_ci.sh wait`.
 
 Lessons from the real runs that are built into the workflow: `flutter create` generates an `analysis_options.yaml` referencing `flutter_lints` (analysis failed) and takes the project name from the directory; Gradle ignored the default debug keystore location; the Flutter SDK cache is about 1.6 GB and the Gradle cache about 1.3 GB per repository. GitHub announced that `ubuntu-latest` moves to Ubuntu 26 from 19 Oct 2026; Java is installed by the workflow, so this should be harmless.

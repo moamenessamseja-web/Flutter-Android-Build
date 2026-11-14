@@ -2,6 +2,8 @@
 
 Use this when the owner gives an app idea or a change request. It is the sequence the owner expects; the rules behind it are in the Engineering in Charge skill. Variables: `OWNER=moamenessamseja-web`, `APP=<repo name>`, `GW=/tmp/gateway` (see `README.md`), `GH_TOKEN` in the environment (never in files, URLs or logs; see `ACCESS.md`).
 
+No bash/git in your harness? Do the clone/commit/push/PR/build/report parts through the GitHub REST API as described in `HTTP_ONLY.md`; the order and the report format here still apply.
+
 Auth for git, without storing the token: `AUTH="Authorization: Basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"` then `git -c http.extraheader="$AUTH" <push|fetch|clone ...>`.
 
 ## A. New app (a new repository from the template)
@@ -15,7 +17,7 @@ Auth for git, without storing the token: `AUTH="Authorization: Basic $(printf 'x
 Clone it, read its own `.agent/` after the gateway, inspect before changing anything.
 
 ## C. Implement, push, build
-1. `bash $GW/.skills/engineer-in-charge/scripts/orient.sh .`; if there is no `.agent/`, run `init_agent.py` (README step 5) and put the owner's request verbatim in `BRIEF.md`.
+1. `bash $GW/.skills/engineer-in-charge/scripts/orient.sh .`; if there is no `.agent/`, run `init_agent.py` (README step 5) and put the owner's request verbatim in `BRIEF.md`. If `.agent/HTTP_ONLY.md` exists (apps from the template have it), add it to the index in `.agent/README.md`, otherwise `agent_audit.py` warns.
 2. Branch `agent/<short-task>`; small commits; never commit to `main`.
 3. Keep `pubspec.yaml` dependencies pinned exactly. Design work: `design` skill.
 4. Push the branch and open a Pull Request (`POST /repos/$OWNER/$APP/pulls`). The PR starts the `Build APK` workflow.
