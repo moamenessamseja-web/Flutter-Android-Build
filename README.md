@@ -153,6 +153,8 @@ Verified on GitHub Actions:
 - Cache effect on the same ref: cold 5 min 48 s, warm 2 min 16 s.
 - `actionlint` 1.7.12 with shellcheck; skill files identical to the uploaded archives; gateway scripts run on a scratch repository; `gh_ci.sh wait` works against a template repository.
 
-Not verified: installing the APK on a device (the owner does that), release signing with a private key, and apps with native plugins that need Android changes (use `pre_build_command`).
+- **HTTP-only path:** every step of `.agent/HTTP_ONLY.md` sections 8, 1a, 2, 1, 3, 4, 5, 6 and 7 was executed with REST calls only (no git): repository generated from the template, single-file commit, multi-file Git Data commit, pull request, build matched by `head_sha`, annotations and artifact listing. The build that went green was exactly the commit written through the API, with `package=com.moamen.http_test`.
+
+Not verified: installing the APK on a device (the owner does that), release signing with a private key, and apps with native plugins that need Android changes (use `pre_build_command`). Also not verified: downloading the artifact zip through the redirect (my sandbox cannot reach the blob host) and the unchanged bash/git path for the three skills' scripts beyond `init_agent.py`, `orient.sh`, `agent_audit.py` and `gh_ci.sh wait`.
 
 Lessons from the real runs that are built into the workflow: `flutter create` generates an `analysis_options.yaml` referencing `flutter_lints` (analysis failed) and takes the project name from the directory; Gradle ignored the default debug keystore location; the Flutter SDK cache is about 1.6 GB and the Gradle cache about 1.3 GB per repository. GitHub announced that `ubuntu-latest` moves to Ubuntu 26 from 19 Oct 2026; Java is installed by the workflow, so this should be harmless.
