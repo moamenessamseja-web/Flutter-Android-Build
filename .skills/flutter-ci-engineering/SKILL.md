@@ -12,7 +12,7 @@ session that does not update them destroys the next session's context. Everythin
 ## 1. The two gates (non-negotiable)
 
 ### Start gate — before ANY edit, build or analysis
-1. `bash scripts/session_start.sh <repo>` — one capped command: branch, last commits, working tree, `.agent/` listing, head+tail of
+1. `bash ../engineer-in-charge/scripts/orient.sh <repo>` — one capped command: branch, last commits, working tree, `.agent/` listing, head+tail of
    `IMPLEMENTATION_STATE.md` and `HANDOFF.md`. It also records the session-start SHA for the stop gate.
    (No repo yet? clone with the token header trick in §8, then run it.)
 2. Read the rest of `.agent/` that matters (state file in full if short; mission/spec only the sections the task needs).
@@ -22,7 +22,7 @@ session that does not update them destroys the next session's context. Everythin
 5. No `.agent/` directory? Create it first (state file with: baseline SHA, verified facts, open items) — before writing any code.
 
 ### Stop gate — you may not end the session, hand control back, or send a "done" report until this passes
-`python3 scripts/handoff_check.py` must print `HANDOFF OK`. It fails unless `.agent/IMPLEMENTATION_STATE.md`, `HANDOFF.md`, `CHANGELOG.md`
+`python3 ../engineer-in-charge/scripts/stop_gate.py` must print `HANDOFF OK`. It fails unless `.agent/IMPLEMENTATION_STATE.md`, `HANDOFF.md`, `CHANGELOG.md`
 (and `implementation.md` if present) were changed in a commit this session, the tree is clean, HEAD is pushed, and the state file has an
 entry dated today. What each file must say:
 - **IMPLEMENTATION_STATE.md** — dated session section: baseline SHA, what changed and why, what was verified and *how*, what was NOT
@@ -38,12 +38,12 @@ trigger CI, so this costs nothing.
 ## 2. Environment facts that waste hours when forgotten
 | Fact | Consequence |
 |---|---|
-| No Dart/Flutter SDK; pub.dev, storage.googleapis.com and Azure blob logs are not reachable | CI is the only compiler; read failures from the `debug-<run>` release asset (`scripts/gh_ci.sh log <n>`) |
+| No Dart/Flutter SDK; pub.dev, storage.googleapis.com and Azure blob logs are not reachable | CI is the only compiler; read failures from the run's failure annotation (`gh_ci.sh result <branch>`: it carries the last 40 lines of the failing log) or the `ci-logs` artifact. Release assets (`debug-<run>`) exist only in legacy pipelines that publish releases |
 | github.com, api.github.com, raw.githubusercontent.com, release assets ARE reachable | APKs/logs/Flutter templates/changelogs can be fetched; plugin changelogs from `raw.githubusercontent.com/flutter/packages/...` |
 | One bash call dies at **300 s** and loses all output | never sleep > 270 s in a call |
 | `/bin/sh` is dash | no `{a,b}` brace expansion (`mkdir -p a/{b,c}` creates a folder literally named `{b,c}`); use `bash` or separate args |
 | `cut -c` is byte-based | truncating Arabic text yields invalid UTF-8 and the tool returns nothing: truncate with Python or don't truncate |
-| Raw CI logs / GitHub JSON contain control chars | use `scripts/clean_log.py`; strip `[\x00-\x08\x0b\x0c\x0e-\x1f]` before `json.loads` |
+| Raw CI logs / GitHub JSON contain control chars | use `../engineer-in-charge/scripts/clean_log.py`; strip `[\x00-\x08\x0b\x0c\x0e-\x1f]` before `json.loads` |
 | Older tool results get cleared from context | write conclusions into the state file; don't rely on re-reading earlier output |
 
 ## 3. The work loop (one phase or one concern at a time)
@@ -57,17 +57,21 @@ trigger CI, so this costs nothing.
    a compiler. Also by eye: no unused private members/imports/locals (analyzer *warnings* are fatal), no records/features the pinned Dart
    may not support, null-safety on every nullable access.
 5. **Commit + push + dispatch in ONE command**:
-   `git add -A && git commit -q -m "<why, not just what; state 'not run locally'>" && git -c http.extraheader="$HDR" push -q origin <branch> && GH_TOKEN=… REPO=… bash scripts/gh_ci.sh push-run <branch>`
+   `git add -A && git commit -q -m "<why, not just what; state 'not run locally'>" && git -c http.extraheader="$HDR" push -q origin <branch> && GH_TOKEN=… REPO=… bash ../engineer-in-charge/scripts/gh_ci.sh push-run <branch>` (or just open the PR: the caller workflow builds on `pull_request`)
 6. **Use the CI wait productively** (§4): write the next phase's patch, the docs, or analysis — don't idle.
-7. **Green →** fetch the release (`gh_ci.sh notes build-<n>`), inspect the APK if the change touches startup/dependencies
-   (`apk_compare.py`), update the 4 handoff files, commit/push docs, then continue.
-   **Red →** `gh_ci.sh log <n>`; read the actual error; find the root cause (one bad export can print 15 symptoms); fix; repeat.
+7. **Green →** `GH_TOKEN=… REPO=… bash ../engineer-in-charge/scripts/gh_ci.sh result <branch>` prints the run's commit, the `APK ready` annotation
+   (commit, package, size, APK SHA-256, signing fingerprint, analyze/tests status) and the artifact. Check `tests=` — `skipped-no-test-dir` means the green
+   build ran ZERO tests. This pipeline produces artifacts, NOT releases: `gh_ci.sh log` / `notes` / `download` read release assets and only apply to
+   legacy pipelines that publish releases (they return 404 on the central workflow). Inspect the APK (`apk_compare.py`) only if you could obtain it,
+   update the 4 handoff files, commit/push docs, then continue.
+   **Red →** `gh_ci.sh result <branch>` prints the failure annotation (title = the log file, message = its last 40 lines); full logs are in the
+   artifact `ci-logs`. Read the actual error; find the root cause (one bad export can print 15 symptoms); fix; repeat.
    Two reds in a row on the same symptom ⇒ stop patching and form a hypothesis from evidence (§7).
 8. Branch builds use `workflow_dispatch`; never push to `main` "just to check". Merge to `main` only when the owner has device-confirmed.
 
 ## 4. Time and sleep economy (measured: dispatch → finished ≈ 6.5–7.5 min)
 - Right after dispatch: do useful offline work for 2–4 minutes (next patch, docs). Then `gh_ci.sh wait <branch> 240`
-  (polls every 20 s, prints only on change, exits 0 green / 1 red / 2 still running). If exit 2, call it again once (`wait … 200`).
+  (polls every 20 s, prints only on change, exits 0 green / 1 red / 2 still running). It waits for the run of YOUR commit (`$EXPECT_SHA`, else `git rev-parse HEAD`), so a stale green run of an older commit is never reported as success. If exit 2, call it again once (`wait … 200`).
   Typical total: 2 wait calls. Never poll in a loop that prints each iteration; never `sleep 300`.
 - Don't re-dispatch while a run for the same branch is in progress (it just queues and doubles the wait).
 - Batch CI cycles: group related phases into one push when they don't interfere; but push the riskiest change (startup, dependencies,
@@ -126,8 +130,7 @@ what is NOT done/unknown → decisions needed from the owner → security note (
 Run the stop gate first; if it fails, fix the docs, don't report.
 
 ## Resources
-- `scripts/session_start.sh` — start gate. `scripts/handoff_check.py` — stop gate.
-- `scripts/gh_ci.sh` — dispatch / status / wait / log / notes / download (token via `GH_TOKEN`, never stored).
-- `scripts/clean_log.py`, `scripts/dart_sanity.py`, `scripts/apk_compare.py`.
+- Gates and CI helper live in `../engineer-in-charge/scripts/` (`orient.sh`, `stop_gate.py`, `gh_ci.sh`, `clean_log.py`): single source; this skill does not duplicate them.
+- `scripts/dart_sanity.py`, `scripts/apk_compare.py` (specific to this skill).
 - `references/lessons.md` (symptom → cause → action, read when a symptom matches), `references/android-ci-injection.md`
   (generated-`android/` rules), `references/manager-assistant.md` (project facts: repo, anchors, CI, open decisions).

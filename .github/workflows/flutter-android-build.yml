@@ -205,18 +205,27 @@ jobs:
         run: bash -eo pipefail -c "$PRE_BUILD_COMMAND" 2>&1 | tee "$LOG_DIR/pre-build.log"
 
       - name: Analyze
+        id: analyze
         if: ${{ inputs.run_analyze }}
         env:
           ANALYZE_ARGS: ${{ inputs.analyze_args }}
         run: |
           # shellcheck disable=SC2086
           flutter analyze $ANALYZE_ARGS 2>&1 | tee "$LOG_DIR/analyze.log"
+          echo "analyze=ran" >> "$GITHUB_OUTPUT"
 
       - name: Test
+        id: test
         if: ${{ inputs.run_tests }}
         run: |
-          if [ ! -d test ]; then echo "No test/ directory - skipping tests."; exit 0; fi
+          if [ ! -d test ]; then
+            echo "tests=skipped-no-test-dir" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Tests skipped::No test/ directory - this build ran ZERO tests. A green build does not mean the app was tested."
+            echo "- ⚠️ **Tests: SKIPPED** (no \`test/\` directory)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           flutter test 2>&1 | tee "$LOG_DIR/test.log"
+          echo "tests=ran" >> "$GITHUB_OUTPUT"
 
       - name: Install fixed debug keystore
         if: ${{ inputs.fixed_debug_keystore }}
@@ -250,6 +259,8 @@ jobs:
         env:
           COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           FIXED_DEBUG_KEYSTORE: ${{ inputs.fixed_debug_keystore }}
+          ANALYZE_STATUS: ${{ steps.analyze.outputs.analyze || 'disabled' }}
+          TESTS_STATUS: ${{ steps.test.outputs.tests || 'disabled' }}
         run: |
           apk=$(find build/app/outputs/flutter-apk -maxdepth 1 -name '*.apk' | sort | head -n 1)
           [ -n "$apk" ] || { echo "::error::No APK found after build"; exit 1; }
@@ -269,11 +280,12 @@ jobs:
           if [ "$FIXED_DEBUG_KEYSTORE" = "true" ] && [ "$signer" != "unavailable" ] && [ "$signer" != "$expected" ]; then
             echo "::warning title=Signing key differs from the fixed debug key::signer=$signer expected=$expected. The app may define its own signing config; set fixed_debug_keystore=false if that is intended."
           fi
-          echo "::notice title=APK ready::commit=${COMMIT_SHA} package=$pkg file=$(basename "$apk") size=$size apk_sha256=$apk_sha signer_sha256=$signer"
+          echo "::notice title=APK ready::commit=${COMMIT_SHA} package=$pkg analyze=$ANALYZE_STATUS tests=$TESTS_STATUS file=$(basename "$apk") size=$size apk_sha256=$apk_sha signer_sha256=$signer"
           {
             echo "### APK"
             echo "- commit: \`${COMMIT_SHA}\`"
             echo "- package (applicationId): \`$pkg\`"
+            echo "- analyze: \`$ANALYZE_STATUS\` / tests: \`$TESTS_STATUS\`"
             echo "- file: \`$(basename "$apk")\` ($size)"
             echo "- APK SHA-256: \`$apk_sha\`"
             echo "- signing certificate SHA-256: \`$signer\`"

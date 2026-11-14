@@ -44,6 +44,10 @@ The skills were extracted from the uploaded archives without content changes. Di
 - The uploaded "design" material was a single file (`design 2.md`), not a package. It was moved unchanged to `.skills/design/DESIGN.md` and a short `SKILL.md` was added so it works as a skill.
 - The two zip files were removed after extraction (they remain in Git history).
 - `flutter-ci-engineering/references/manager-assistant.md` describes one specific project; it is kept as supplied and marked as project-specific in `.agent/README.md`.
+- Changes to the supplied skills, each with its reason (false signals found by review, then verified):
+  - `gh_ci.sh` `wait` took the newest run of the branch, so after a new push it could report the *previous* commit's green result; it now waits for the run of `$EXPECT_SHA`/`HEAD`. New `result` command reads the annotations this pipeline actually produces.
+  - Duplicate scripts removed from `flutter-ci-engineering/scripts/` (`gh_ci.sh`, `clean_log.py`: identical copies; `session_start.sh`, `handoff_check.py`: older versions of `orient.sh`, `stop_gate.py`). The single copies live in `engineer-in-charge/scripts/`; `flutter-ci-engineering/SKILL.md`, its `lessons.md` and `engineer-in-charge` docs now point there.
+  - `flutter-ci-engineering/SKILL.md` described reading failures from `debug-<run>` release assets and `gh_ci.sh notes build-<n>`; the central workflow publishes annotations and artifacts instead, so those instructions now describe `gh_ci.sh result` (the release-based commands are kept and labelled legacy).
 - `engineer-in-charge/references/harness-tools.md` got a new section 7, "Minimum capability contract", at the owner's request (what any harness needs, and one row per harness); sections 1-6 are unchanged.
 
 ## 5. How an agent enters and navigates
@@ -56,7 +60,7 @@ Example task from a phone: *"In repo X add a dark-mode toggle to settings."* The
 ## 6. Connect another Flutter repository
 **New apps:** do not copy anything by hand. Create the repository from the public template [Flutter-App-Template](https://github.com/moamenessamseja-web/Flutter-App-Template) (it already contains the caller workflow with a pinned Flutter version, `AGENTS.md` and a minimal app); `.agent/RUN.md` has the exact commands. **Existing apps:**
 1. Make sure this repository's workflow is usable: it is public, so nothing to enable. (If it becomes private: *Settings -> Actions -> General -> Access* -> allow access from your other repositories.)
-2. In the app repository add `.github/workflows/build-apk.yml` as an unchanged copy of the ready file `.agent/templates/build-apk.yml` (section 7). The name `build-apk.yml` matters: `flutter-ci-engineering/scripts/gh_ci.sh push-run` dispatches that file by default.
+2. In the app repository add `.github/workflows/build-apk.yml` as an unchanged copy of the ready file `.agent/templates/build-apk.yml` (section 7). The name `build-apk.yml` matters: `engineer-in-charge/scripts/gh_ci.sh push-run` dispatches that file by default.
 3. Commit `pubspec.lock` (the pub cache key uses its hash).
 4. Optional: copy the block of `.agent/TARGET_REPO_AGENTS.md` (between the `---` lines) into the repo as `AGENTS.md`, and `.agent/HTTP_ONLY.md` to the repo's `.agent/HTTP_ONLY.md` (the `AGENTS.md` block refers to it).
 
@@ -124,7 +128,7 @@ Download from a phone: open the run page in the browser and tap the artifact. Fr
 curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/OWNER/REPO/actions/runs/RUN_ID/artifacts"
 curl -sL -o logs.zip -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/OWNER/REPO/actions/artifacts/ARTIFACT_ID/zip"
 ```
-`flutter-ci-engineering/scripts/gh_ci.sh` works for `push-run`, `status`, `wait`; its `log`, `notes` and `download` commands read release assets that this workflow does not create, so use the artifacts above.
+`engineer-in-charge/scripts/gh_ci.sh` (the single copy; the duplicate in `flutter-ci-engineering` was removed): `wait` waits for the run of your HEAD commit (`EXPECT_SHA` overrides it), so a stale green run is never reported; `result <branch>` prints the failure tail or the `APK ready` annotation and the artifacts. Its `log`, `notes` and `download` commands read release assets that this workflow does not create, so they only apply to release-based legacy pipelines.
 
 | Symptom | Likely cause / action |
 |---|---|
@@ -151,7 +155,7 @@ Verified on GitHub Actions:
 - **Cross-repository call:** a repository generated from the template (name with hyphens) called this workflow from another repository, built green, and reported `package=com.moamen.<pubspec name>`.
 - **Stable signing:** three consecutive runs produced the same certificate fingerprint (and, for the same commit, a bit-identical APK).
 - Cache effect on the same ref: cold 5 min 48 s, warm 2 min 16 s.
-- `actionlint` 1.7.12 with shellcheck; skill files identical to the uploaded archives; gateway scripts run on a scratch repository; `gh_ci.sh wait` works against a template repository.
+- `actionlint` 1.7.12 with shellcheck; gateway scripts run on a scratch repository; `gh_ci.sh wait`/`result` work against a template-generated repository.
 
 - **HTTP-only path:** every step of `.agent/HTTP_ONLY.md` sections 8, 1a, 2, 1, 3, 4, 5, 6 and 7 was executed with REST calls only (no git): repository generated from the template, single-file commit, multi-file Git Data commit, pull request, build matched by `head_sha`, annotations and artifact listing. The build that went green was exactly the commit written through the API, with `package=com.moamen.http_test`.
 

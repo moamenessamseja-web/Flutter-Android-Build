@@ -21,7 +21,7 @@ Clone it, read its own `.agent/` after the gateway, inspect before changing anyt
 2. Branch `agent/<short-task>`; small commits; never commit to `main`.
 3. Keep `pubspec.yaml` dependencies pinned exactly. Design work: `design` skill.
 4. Push the branch and open a Pull Request (`POST /repos/$OWNER/$APP/pulls`). The PR starts the `Build APK` workflow.
-5. Wait: `REPO=$OWNER/$APP bash $GW/.skills/flutter-ci-engineering/scripts/gh_ci.sh wait <branch> 270` (exit 0 green, 1 red, 2 still running: call again). `status <branch>` shows the last runs.
+5. Wait: `REPO=$OWNER/$APP bash $GW/.skills/engineer-in-charge/scripts/gh_ci.sh wait <branch> 270` (exit 0 green, 1 red, 2 still running: call again). It waits for the run of your HEAD commit (override with `EXPECT_SHA`); `result <branch>` then prints the annotations (failure tail or `APK ready` with `tests=`/`analyze=`) and the artifact. `status <branch>` shows the last runs.
    `wait` may print a harmless Python traceback while the run has not been created yet; just let it continue. Only `push-run`, `status` and `wait` of that script apply here; its `log`/`notes`/`download` expect release assets that this pipeline does not produce.
 6. Red build: read the failure annotation (the tail of the failing log), fix on the same branch, push, wait again. After three failures with the same cause, stop and report (loop rule in the skill).
    ```bash

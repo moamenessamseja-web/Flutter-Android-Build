@@ -18,7 +18,7 @@ Goal: the new project feels like the old environment — same memory folder, sam
 ## 3. First green build before features (20–30 min)
 - [ ] Pin the toolchain version (Flutter/Node/Python/Java) — an unpinned "latest" silently changed behaviour once and cost a day.
 - [ ] CI runs: format/lint → tests → build artifact. Warnings policy decided (fatal warnings, non-fatal infos is a good default). Failure logs are published as an artifact so the
-      sandbox can read them (see `gh_ci.sh log`).
+      sandbox can read them (see `gh_ci.sh result`).
 - [ ] Add an environment fingerprint to every build (toolchain versions, resolved key dependency versions) in the release notes — it makes later drift diagnosable.
 - [ ] A smoke test that boots the app/service and a startup path that **shows an error instead of a blank screen** on failure.
 

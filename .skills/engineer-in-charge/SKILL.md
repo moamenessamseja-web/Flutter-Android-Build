@@ -123,6 +123,6 @@ failure it prevents, and whether that failure is possible here.
 
 ## Resources
 - `scripts/orient.sh` start gate · `stop_gate.py` stop gate · `agent_audit.py` · `init_agent.py` · `loop_guard.py`
-- `scripts/gh_ci.sh` (dispatch/status/wait/log/notes/download via `GH_TOKEN`) · `clean_log.py` (control-char-safe log reader)
+- `scripts/gh_ci.sh` (push-run/status/wait/result via `GH_TOKEN`; `wait` waits for the run of your HEAD commit; log/notes/download are for release-based legacy pipelines) · `clean_log.py` (control-char-safe log reader)
 - `assets/agent-templates/*.md` — the ten `.agent/` files, ready to copy
 - `references/harness-tools.md` · `agent-folder.md` · `learning-loops-and-judgment.md` · `owner-communication.md` · `new-project-bootstrap.md`
