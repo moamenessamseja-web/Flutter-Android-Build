@@ -186,17 +186,21 @@ jobs:
           if [ "$ANDROID_SCAFFOLD" = "never" ]; then
             echo "::error::android/ is missing and android_scaffold=never."; exit 1
           fi
-          # `flutter create` writes an analysis_options.yaml that includes package:flutter_lints, which the app
-          # may not depend on (analyze would then fail with include_file_not_found). Keep the app's own analyzer
-          # configuration: if it had none, drop the generated one.
+          # `flutter create` also writes files the app did not have: an analysis_options.yaml that includes
+          # package:flutter_lints (analyze then fails with include_file_not_found) and a default test/widget_test.dart
+          # that refers to a class named MyApp (analyze fails; and it would hide that the app has NO tests).
+          # Keep the app exactly as it is: whatever it did not have before the scaffold is removed afterwards.
           had_analysis_options=false
           [ -f analysis_options.yaml ] && had_analysis_options=true
+          had_test_dir=false
+          [ -d test ] && had_test_dir=true
           # flutter create derives the project name from the directory name; the checkout directory is the
           # repository name, which may not be a valid Dart package name (e.g. my-app). Use the pubspec name.
           proj=$(sed -n 's/^name:[[:space:]]*//p' pubspec.yaml | head -n 1 | tr -d "\"' \r")
           # shellcheck disable=SC2086  # intentional word splitting of extra args
           flutter create --platforms=android --project-name "$proj" $SCAFFOLD_ARGS . 2>&1 | tee "$LOG_DIR/flutter-create.log"
           if [ "$had_analysis_options" = false ]; then rm -f analysis_options.yaml; fi
+          if [ "$had_test_dir" = false ]; then rm -rf test; fi
 
       - name: Pre-build command
         if: ${{ inputs.pre_build_command != '' }}
