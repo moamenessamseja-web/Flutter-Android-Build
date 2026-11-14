@@ -1,0 +1,24 @@
+# Drift canary: builds the smoke app with the LATEST stable Flutter (no pin).
+# Red here means Flutter or its toolchain changed in a way that affects builds; it is NOT a defect of the pinned pipeline.
+# It is a separate workflow (scheduled weekly or on demand), so it can never block a pull request.
+name: Canary (latest stable Flutter)
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/canary.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  latest:
+    uses: ./.github/workflows/flutter-android-build.yml
+    with:
+      working_directory: fixtures/smoke_app
+      build_mode: debug
+      artifact_name: smoke-apk-canary
+      artifact_retention_days: 1

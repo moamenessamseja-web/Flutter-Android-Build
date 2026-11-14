@@ -22,13 +22,3 @@ jobs:
       build_mode: debug
       artifact_name: smoke-apk-pinned
       artifact_retention_days: 1
-
-  latest-canary:
-    name: Latest stable (drift canary, non-blocking)
-    continue-on-error: true
-    uses: ./.github/workflows/flutter-android-build.yml
-    with:
-      working_directory: fixtures/smoke_app
-      build_mode: debug
-      artifact_name: smoke-apk-canary
-      artifact_retention_days: 1
