@@ -6,18 +6,19 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - ".github/workflows/flutter-android-build.yml"
-      - ".github/workflows/smoke-test.yml"
-      - "fixtures/smoke_app/**"
+      - ".github/workflows/**"
+      - "fixtures/**"
 
 permissions:
   contents: read
 
 jobs:
-  smoke:
+  pinned:
+    name: Pinned toolchain (must pass)
     uses: ./.github/workflows/flutter-android-build.yml
     with:
       working_directory: fixtures/smoke_app
+      flutter_version: "3.47.9"
       build_mode: debug
-      artifact_name: smoke-apk
+      artifact_name: smoke-apk-pinned
       artifact_retention_days: 1
