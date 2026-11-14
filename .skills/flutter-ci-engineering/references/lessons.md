@@ -49,7 +49,7 @@ Also `flutter create --org com.example` ⇒ `com.example.*` application id, whic
 
 ## L10. Tool-output hazards in the sandbox
 - `cut -c` is byte-based: truncating Arabic lines yields invalid UTF-8 and the tool returns NOTHING. Truncate with Python (`line[:200]`).
-- Raw CI logs contain ANSI/control chars: use `scripts/clean_log.py`.
+- Raw CI logs contain ANSI/control chars: use `../engineer-in-charge/scripts/clean_log.py`.
 - GitHub JSON can contain control chars: strip `[\x00-\x08\x0b\x0c\x0e-\x1f]` before `json.loads`.
 - `/bin/sh` here is dash: `mkdir -p a/{b,c}` creates a literal folder named `{b,c}`. Use `bash -c` or separate args.
 - A single command is killed at 300 s and its output is lost: never `sleep` more than ~270 s in one call.
