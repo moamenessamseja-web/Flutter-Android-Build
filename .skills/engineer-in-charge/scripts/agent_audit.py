@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Audit a project's .agent/ folder. Usage: python3 agent_audit.py [--repo .] [--brief]
-Checks (exit 1 if any ERROR): required files; README index mentions every file; no secrets; status vocabulary in
-implementation.md; archived files carry a banner; state file not bloated; docs not older than the code (WARN);
+Checks (exit 1 if any ERROR): required files; README index mentions every file; no secrets; status vocabulary on EVERY inventory item of
+implementation.md (a vague status such as "Done" is an ERROR); archived files carry a banner; state file not bloated; docs not older than the code (WARN);
 leftover template placeholders (WARN)."""
 import argparse, pathlib, re, subprocess, sys
 ap = argparse.ArgumentParser(); ap.add_argument('--repo', default='.'); ap.add_argument('--brief', action='store_true')
@@ -25,8 +25,14 @@ for p in ag.rglob('*.md'):
 VALID = ['Verified complete', 'Implemented, not yet verified', 'Partially implemented', 'Not started', 'Blocked', 'Deferred by product decision']
 if 'implementation.md' in files:
     t = files['implementation.md'].read_text(encoding='utf-8')
+    VAGUE = re.compile(r'\b(done|works|working|complete|finished|ok|should work|ready)\b', re.I)
+    inventory = re.split(r'^#+\s*Verification log', t, flags=re.I | re.M)[0]   # the log below holds free-text evidence, not statuses
+    items = [l for l in inventory.split('\n') if l.strip().startswith(('-', '*', '|')) and len(l.strip()) > 3]
+    if not items: warns.append('implementation.md has no inventory items')
+    for l in items:
+        if any(v.lower() in l.lower() for v in VALID): continue
+        if VAGUE.search(l): errs.append(f'implementation.md item uses a non-standard status: {l.strip()[:90]}')
     if not any(v.lower() in t.lower() for v in VALID): warns.append('implementation.md uses none of the standard status words')
-    if re.search(r'should work', t, re.I): warns.append("implementation.md says 'should work' — use evidence-based statuses")
 arch = ag / 'archive'
 if arch.is_dir():
     for p in arch.glob('*.md'):

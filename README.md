@@ -28,6 +28,7 @@ AGENTS.md                         entry point read by most coding agents -> poin
   design/                         DESIGN.md (visual/UI guide, Arabic) + SKILL.md
 .github/workflows/
   flutter-android-build.yml       THE reusable workflow (workflow_call)
+  method-check.yml                reusable PR check: .agent/ memory audit + handoff docs updated in the PR
   smoke-test.yml                  self-test: builds fixtures/smoke_app through the reusable workflow
 fixtures/smoke_app/               minimal Flutter app (no android/ folder) used only by the smoke test
 ```
@@ -112,6 +113,9 @@ Debug-signed APKs (debug mode, and release mode until an app defines real releas
 
 ## 9. Branches, commits, Pull Requests
 Agents work on a dedicated branch (e.g. `agent/<short-task>`), one concern per commit, never on the default branch. Push the branch, open a PR; the caller's `pull_request` trigger builds it through this workflow. The default branch only receives what the owner has tested on a device. Details: `engineer-in-charge/SKILL.md` section 4 and `flutter-ci-engineering/SKILL.md` section 3/8.
+
+### 9a. Method check
+`method-check.yml` (called by the ready caller on pull requests, as a separate job so it never blocks the APK build) runs `engineer-in-charge/scripts/agent_audit.py` on the target repository and fails on: missing `.agent/` files, a secret-looking string in `.agent/`, a vague status ("Done", "works"...) on any `implementation.md` inventory row, or `IMPLEMENTATION_STATE.md` / `HANDOFF.md` / `CHANGELOG.md` not changed in the PR. Warnings are reported but not fatal (`fail_on_warning: true` makes them fatal). The audit script is fetched from this repository at `gateway_ref` (default `main`); pin it to the same ref as the caller's `uses:`. The free-text "Verification log" at the end of `implementation.md` is deliberately not subject to the status check. Pushes to `main` are not checked: a repository created from the template has no `.agent/` state until the agent runs `init_agent.py`.
 
 ## 10. Permissions and secrets
 See `.agent/ACCESS.md`. In short:
