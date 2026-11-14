@@ -2,6 +2,8 @@
 
 Use this when the owner gives an app idea or a change request. It is the sequence the owner expects; the rules behind it are in the Engineering in Charge skill. Variables: `OWNER=moamenessamseja-web`, `APP=<repo name>`, `GW=/tmp/gateway` (see `README.md`), `GH_TOKEN` in the environment (never in files, URLs or logs; see `ACCESS.md`).
 
+No bash/git in your harness? Do the clone/commit/push/PR/build/report parts through the GitHub REST API as described in `HTTP_ONLY.md`; the order and the report format here still apply.
+
 Auth for git, without storing the token: `AUTH="Authorization: Basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"` then `git -c http.extraheader="$AUTH" <push|fetch|clone ...>`.
 
 ## A. New app (a new repository from the template)
