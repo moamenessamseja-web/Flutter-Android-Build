@@ -25,7 +25,7 @@ AGENTS.md                         entry point read by most coding agents -> poin
 .skills/
   engineer-in-charge/             method, start/stop gates, scripts, and the .agent/ templates (assets/agent-templates/)
   flutter-ci-engineering/         Flutter + GitHub Actions workflow, CI scripts, lessons
-  design/                         DESIGN.md (visual/UI guide, Arabic) + SKILL.md
+  design/                         product design skill, references/templates + DESIGN.md (shared Flutter/Android baseline)
 .github/workflows/
   flutter-android-build.yml       THE reusable workflow (workflow_call)
   method-check.yml                reusable PR check: .agent/ memory audit + handoff docs updated in the PR
@@ -38,11 +38,11 @@ fixtures/smoke_app/               minimal Flutter app (no android/ folder) used 
 |---|---|---|
 | `engineer-in-charge` | Always first. How to orient in a repo, work in small verified steps, report honestly, stop loops. Holds the ten `.agent/` templates and the start/stop-gate scripts. | `.skills/engineer-in-charge/SKILL.md` |
 | `flutter-ci-engineering` | Flutter/Android built only on GitHub Actions: CI loop, APK comparison, dependency-drift diagnosis, lessons L1-L18. | `.skills/flutter-ci-engineering/SKILL.md` |
-| `design` | UI and visual identity for every Flutter app: tokens, RTL/LTR, typography, components, accessibility. | `.skills/design/SKILL.md` -> `DESIGN.md` |
+| `design` | Product discovery, information architecture, visual hierarchy/language, composition, UX states, critique, and Flutter implementation. | `.skills/design/SKILL.md` -> `DESIGN.md` -> task-relevant references/templates |
 
 The skills were extracted from the uploaded archives without content changes. Differences from what was uploaded, and why:
 - The archives are named `engineer-in-charge` and `flutter-ci-engineering`; those real names are used for the folders.
-- The uploaded "design" material was a single file (`design 2.md`), not a package. It was moved unchanged to `.skills/design/DESIGN.md` and a short `SKILL.md` was added so it works as a skill.
+- The uploaded design guide remains unchanged at `.skills/design/DESIGN.md`. The skill now adds a product-to-implementation workflow plus task-specific references and templates; it defines a method, not a universal app theme.
 - The two zip files were removed after extraction (they remain in Git history).
 - `flutter-ci-engineering/references/manager-assistant.md` describes one specific project; it is kept as supplied and marked as project-specific in `.agent/README.md`.
 - Changes to the supplied skills, each with its reason (false signals found by review, then verified):
