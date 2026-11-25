@@ -107,24 +107,40 @@ def find_dart():
     return download_dart()
 
 
+def fetch(url, path):
+    """Download to path (skips if already complete). A killed run leaves no half file behind, so just run again."""
+    if os.path.exists(path):
+        return path
+    log(f"downloading {url.rsplit('/', 1)[-1]} ...")
+    tmp = path + ".part"
+    with urllib.request.urlopen(url, timeout=600) as r, open(tmp, "wb") as out:
+        shutil.copyfileobj(r, out, 1 << 20)
+    os.replace(tmp, path)
+    return path
+
+
 def download_dart():
+    """Resumable in steps (each step is cached): index, package, unpack. Needs ~300 MB of disk and ~2-4 minutes."""
     try:
         import zstandard
     except ImportError:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "--break-system-packages", "zstandard"])
         import zstandard
     os.makedirs(CACHE, exist_ok=True)
-    log("downloading the conda-forge package index (one time, ~90 MB)...")
-    with urllib.request.urlopen("https://conda.anaconda.org/conda-forge/linux-64/current_repodata.json", timeout=300) as r:
-        repo = json.load(r)
-    pk = {**repo.get("packages", {}), **repo.get("packages.conda", {})}
-    cands = sorted((v["version"], k) for k, v in pk.items() if v["name"] == "dart-sdk")
-    if not cands:
-        sys.exit("no dart-sdk package found in conda-forge/linux-64")
-    fname = cands[-1][1]
-    log(f"downloading {fname} (~230 MB)...")
-    data = urllib.request.urlopen(f"https://conda.anaconda.org/conda-forge/linux-64/{fname}", timeout=600).read()
-    z = zipfile.ZipFile(io.BytesIO(data))
+    base = "https://conda.anaconda.org/conda-forge/linux-64/"
+    name_file = os.path.join(CACHE, "dart-sdk.filename")
+    if not os.path.exists(name_file):
+        idx = fetch(base + "current_repodata.json", os.path.join(CACHE, "current_repodata.json"))
+        repo = json.load(open(idx))
+        pk = {**repo.get("packages", {}), **repo.get("packages.conda", {})}
+        cands = sorted((v["version"], k) for k, v in pk.items() if v["name"] == "dart-sdk")
+        if not cands:
+            sys.exit("no dart-sdk package found in conda-forge/linux-64")
+        open(name_file, "w").write(cands[-1][1])
+        os.remove(idx)
+    fname = open(name_file).read().strip()
+    pkg_path = fetch(base + fname, os.path.join(CACHE, fname))
+    z = zipfile.ZipFile(pkg_path)
     inner = [n for n in z.namelist() if n.startswith("pkg-") and n.endswith(".tar.zst")][0]
     stream = zstandard.ZstdDecompressor().stream_reader(io.BytesIO(z.read(inner)))
     tmp = os.path.join(CACHE, "dart-sdk-tmp")
@@ -132,6 +148,7 @@ def download_dart():
     tarfile.open(fileobj=stream, mode="r|").extractall(tmp)
     shutil.rmtree(os.path.join(CACHE, "dart-sdk"), ignore_errors=True)
     shutil.move(tmp, os.path.join(CACHE, "dart-sdk"))
+    os.remove(pkg_path)
     for root, _, files in os.walk(os.path.join(CACHE, "dart-sdk", "bin")):
         for f in files:
             os.chmod(os.path.join(root, f), 0o755)
