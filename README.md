@@ -21,9 +21,13 @@ AGENTS.md                         entry point read by most coding agents -> poin
   TARGET_REPO_AGENTS.md           snippet to copy into a target repo as its AGENTS.md
   RUN.md                          the recipe: idea -> new repo from the template -> green build -> report
   HTTP_ONLY.md                    the same recipe for harnesses with no bash/git (GitHub REST API only)
-  templates/build-apk.yml         ready caller workflow for an app repository (single source)
+  templates/build-apk.yml         ready caller workflow for an app repository (single source; the template repo adds one line, pre_build_command)
+docs/
+  STATUS.md                       where the gateway stands, how to start in a new conversation (read first when maintaining)
+  JOURNEY.md                      how it came to be: stages, decisions, mistakes
+  BACKLOG.md                      what is left, in priority order
 .skills/
-  engineer-in-charge/             method, start/stop gates, scripts, and the .agent/ templates (assets/agent-templates/)
+  engineer-in-charge/             method, start/stop gates, scripts (gh_ci.sh, pure_dart_tests.py, setup_sandbox.sh ...), the .agent/ templates (assets/agent-templates/), references/harness-tools.md (incl. measured sandbox facts)
   flutter-ci-engineering/         Flutter + GitHub Actions workflow, CI scripts, lessons
   design/                         DESIGN.md (visual/UI guide, Arabic) + SKILL.md
 .github/workflows/
@@ -93,6 +97,7 @@ All inputs (defaults in brackets):
 | `build_args` [""] | Extra `flutter build apk` args, e.g. `--build-number=42` |
 | `artifact_name` [android-apk], `artifact_retention_days` [14] | APK artifact |
 | `fixed_debug_keystore` [true] | Sign with one fixed, public debug key so every APK has the same signature (see section 7a) |
+| `report_dependencies` [true] | Print the resolved direct dependencies and platform implementations with versions (annotation `Resolved dependencies` + run summary), so exact versions can be pinned without a committed `pubspec.lock`. Informational: never fails the build |
 | `gradle_cache_read_only` [false] | See caching |
 | `timeout_minutes` [30] | Job timeout |
 
@@ -156,6 +161,9 @@ curl -sL -o logs.zip -H "Authorization: Bearer $GH_TOKEN" "https://api.github.co
 - **New workflow** (e.g. app bundle, signing): add `.github/workflows/<name>.yml` with `on: workflow_call`, declare inputs/permissions explicitly, lint it, add a smoke job.
 - **Change the Android build:** edit the one workflow on a branch, then follow the upgrade process in section 7 (new tag, one app first). Run the smoke test (Actions -> "Smoke test" -> Run workflow) before relying on it.
 - Lessons that apply to all projects belong in the relevant skill (as the skills themselves ask); project facts belong in the target repo's `.agent/`.
+
+## Continuing this work from another conversation
+Start with `docs/STATUS.md` (state, how the owner works, how to start, verified vs not), then `docs/JOURNEY.md` and `docs/BACKLOG.md`. In a fresh sandbox run `.skills/engineer-in-charge/scripts/setup_sandbox.sh`; pure-Dart tests of an app run with `.skills/engineer-in-charge/scripts/pure_dart_tests.py`; sandbox facts are in `.skills/engineer-in-charge/references/harness-tools.md` section 8.
 
 ## Verification status of this repository
 Verified on GitHub Actions:
