@@ -76,7 +76,7 @@ curl -fsSL https://raw.githubusercontent.com/moamenessamseja-web/Flutter-Android
 ```
 The app repositories created from `Flutter-App-Template` already contain the same file; when the ready file changes, update the template's copy too.
 
-The caller pins a release tag (`@v1.0.0`), so a change to this repository cannot break your apps until you move them to a newer tag; `@main` would follow every change immediately. Releases: https://github.com/moamenessamseja-web/Flutter-Android-Build/releases.
+The caller pins a release tag (`@v1.1.0` today; `v1.0.0` keeps working), so a change to this repository cannot break your apps until you move them to a newer tag; `@main` would follow every change immediately. Releases: https://github.com/moamenessamseja-web/Flutter-Android-Build/releases.
 
 **Upgrade process:** change the gateway on a branch -> `Smoke test` green on that PR -> merge -> new tag (e.g. `v1.0.1`) -> update the ref in ONE app first (its `build-apk.yml`: both `uses:` lines and `gateway_ref`), build it -> if green, update the other apps and `.agent/templates/build-apk.yml` (and the template repository's copy).
 
