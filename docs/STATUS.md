@@ -6,7 +6,7 @@ The full story is in `JOURNEY.md`, what is left in `BACKLOG.md`. Rules for agent
 ## What exists (three repositories, all public, owner `moamenessamseja-web`)
 | Repository | Role | Version / state |
 |---|---|---|
-| `Flutter-Android-Build` (this one) | the gateway: reusable build workflow, PR method check, three skills, agent entry point, scripts | tag `v1.0.0` is what apps use today; `v1.1.0` adds the resolved-dependencies report (see below) |
+| `Flutter-Android-Build` (this one) | the gateway: reusable build workflow, PR method check, three skills, agent entry point, scripts | **current tag `v1.1.0`** (callers in the template and the ready file use it); `v1.0.0` is still used by addadi and works unchanged |
 | `Flutter-App-Template` | template repository for new apps: caller workflow, layered Dart skeleton, `tool/ci_android.sh`, `tool/rename_app.sh`, `docs/RECIPES.md` | v2 prepared on branch `feat/template-v2`; see BACKLOG for whether it is merged |
 | `addadi` | the first real app (Ɛaddady / عَدّادي): reference implementation of everything | Phase 1 + 2 finished, merged, tag `phase2-paused-2026-11-16`, last code commit `5520f0b`, installed and approved by the owner |
 
