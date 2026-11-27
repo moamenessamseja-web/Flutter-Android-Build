@@ -166,6 +166,8 @@ curl -sL -o logs.zip -H "Authorization: Bearer $GH_TOKEN" "https://api.github.co
 Start with `docs/STATUS.md` (state, how the owner works, how to start, verified vs not), then `docs/JOURNEY.md` and `docs/BACKLOG.md`. In a fresh sandbox run `.skills/engineer-in-charge/scripts/setup_sandbox.sh`; pure-Dart tests of an app run with `.skills/engineer-in-charge/scripts/pure_dart_tests.py`; sandbox facts are in `.skills/engineer-in-charge/references/harness-tools.md` section 8.
 
 ## Verification status of this repository
+Verified for v1.1.0 (2026-11-19): the `Resolved dependencies` report on a real `flutter pub deps --json` (all four smoke builds; the fixture has no plugins, so the platform-implementations part shows `none` there); `gh_ci.sh wait` hints verified live on a throw-away repository (PR merged then a new commit; branch without a PR); `pure_dart_tests.py` from an empty cache (downloads a plain Dart SDK, runs 61 tests in 8 s); `setup_sandbox.sh`; the smoke test with signing assertions stays green.
+
 Verified on GitHub Actions:
 - Reusable workflow built the smoke app (debug) and a template-generated app (release, 42 MB), including generating `android/`, analyze, test, APK upload, failure diagnostics (annotation + `ci-logs` artifact).
 - **Cross-repository call:** a repository generated from the template (name with hyphens) called this workflow from another repository, built green, and reported `package=com.moamen.<pubspec name>`.
