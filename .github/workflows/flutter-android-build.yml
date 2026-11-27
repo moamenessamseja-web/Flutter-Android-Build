@@ -81,6 +81,11 @@ on:
         required: false
         type: boolean
         default: true
+      report_dependencies:
+        description: "Print the resolved direct dependencies and platform implementations (with versions) in the run summary and as a `Resolved dependencies` annotation, so exact versions can be pinned without a committed pubspec.lock."
+        required: false
+        type: boolean
+        default: true
       gradle_cache_read_only:
         description: "true = never write the Gradle cache (setup-gradle defaults to read-only on non-default branches; this workflow defaults to false so feature branches also warm the cache)."
         required: false
@@ -180,6 +185,25 @@ jobs:
       - name: Install dependencies
         run: flutter pub get 2>&1 | tee "$LOG_DIR/pub-get.log"
         # bash is invoked with -eo pipefail by GitHub when `shell: bash` is set, so a failing pub get fails the step.
+
+      - name: Resolved dependencies (for pinning)
+        if: ${{ inputs.report_dependencies }}
+        run: |
+          # Informational only: never fails the build.
+          if flutter pub deps --json > "$LOG_DIR/deps.json" 2> "$LOG_DIR/deps.err"; then
+            direct=$(jq -r '[.packages[]? | select(.kind=="direct" or .kind=="dev") | "\(.name) \(.version)"] | join(", ")' "$LOG_DIR/deps.json" 2>/dev/null || true)
+            platform=$(jq -r '[.packages[]? | select(.kind=="transitive") | select(.name|test("_(android|ios)$")) | "\(.name) \(.version)"] | join(", ")' "$LOG_DIR/deps.json" 2>/dev/null || true)
+            total=$(jq '[.packages[]?] | length' "$LOG_DIR/deps.json" 2>/dev/null || echo "?")
+            echo "::notice title=Resolved dependencies::direct+dev: ${direct:-none} | platform implementations: ${platform:-none} | packages total: ${total}"
+            {
+              echo "### Resolved dependencies"
+              echo "- direct and dev: ${direct:-none}"
+              echo "- platform implementations (android/ios): ${platform:-none}"
+              echo "- total packages: ${total}"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning title=Resolved dependencies::flutter pub deps --json failed; versions not reported"
+          fi
 
       - name: Generate Android scaffold if missing
         env:

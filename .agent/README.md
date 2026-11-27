@@ -39,6 +39,8 @@ Notes on `flutter-ci-engineering`: its `references/manager-assistant.md` contain
 | Ready caller workflow to copy into an app repo | `.agent/templates/build-apk.yml` |
 | Template repository for new apps | https://github.com/moamenessamseja-web/Flutter-App-Template |
 | Authentication and access | `.agent/ACCESS.md` |
+| Where the gateway stands, how it came to be, what is left (for a maintainer / new conversation) | `docs/STATUS.md`, `docs/JOURNEY.md`, `docs/BACKLOG.md` |
+| Sandbox facts, tool setup, pure-Dart tests without Flutter | `.skills/engineer-in-charge/references/harness-tools.md` §8, `scripts/setup_sandbox.sh`, `scripts/pure_dart_tests.py` |
 | Human manual | `README.md` |
 
 The templates are deliberately not copied into this folder: `init_agent.py` reads them from the skill, and a second copy would drift.

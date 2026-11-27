@@ -6,7 +6,7 @@
 #   wait      [branch] [seconds<=270]  wait for the run OF THE COMMIT YOU PUSHED; exit 0=success 1=failure 2=still running
 #                                      The commit is $EXPECT_SHA, else the current `git rev-parse HEAD`. Without either, the
 #                                      newest run is used and a WARNING is printed: it may belong to an older commit.
-#   result    [branch|run_id]          what the run says: its commit, failure/warning annotations, the `APK ready` annotation
+#   result    [branch|run_id]          what the run says: its commit, failure/warning annotations, the `Resolved dependencies` and `APK ready` annotations
 #                                      (commit, package, size, SHA-256, signer, tests/analyze status) and the artifacts.
 #                                      With a branch it picks the run of $EXPECT_SHA / HEAD like `wait`.
 # Legacy commands, only for pipelines that publish GitHub Releases (debug-<n> / build-<n> assets). The central
@@ -41,6 +41,20 @@ runs=d.get('workflow_runs',[])
 if want: runs=[r for r in runs if r['head_sha'].startswith(want)]
 print(runs[0]['id'],runs[0]['run_number'],runs[0]['head_sha'][:7],runs[0]['status'],runs[0]['conclusion']) if runs else print('none')"
 }
+# Printed once when no run of the wanted commit shows up for a minute: the usual reasons.
+hint_no_run() { # $1 branch
+  local owner="${REPO%%/*}"
+  [ -z "$1" ] && return 0
+  jget "$API/pulls?state=all&head=$owner:$1&per_page=1" "
+if not d:
+    print('hint: this branch has no pull request. A push to a branch without a PR (and not to main) starts no pull_request build: open a PR or use workflow_dispatch.')
+else:
+    p=d[0]
+    if p['state']=='closed':
+        print('hint: PR #%d is %s. A closed PR never builds new commits: open a new PR for this branch.' % (p['number'], 'merged' if p.get('merged_at') else 'closed'))
+    else:
+        print('hint: PR #%d is open but no run appeared yet: it may still be queuing, or the workflow triggers/paths do not match this change.' % p['number'])" >&2
+}
 cmd="${1:-}"; shift || true
 case "$cmd" in
   push-run)
@@ -52,10 +66,15 @@ case "$cmd" in
 for r in d['workflow_runs']: print(r['run_number'],r['head_sha'][:7],r['status'],r['conclusion'],r['event'])" ;;
   wait)
     q=""; [ -n "${1:-}" ] && q="&branch=$1"; max="${2:-240}"; [ "$max" -gt 270 ] && max=270   # bash tool hard limit is 300 s
-    want="$(want_sha)"; t=0; last=""
+    want="$(want_sha)"; t=0; last=""; misses=0
     while [ "$t" -lt "$max" ]; do
       s=$(pick_run "$q" "$want")
-      if [ "$s" = "none" ]; then line="waiting-for-run${want:+ of ${want:0:7}}"; else line="${s#* }"; fi
+      if [ "$s" = "none" ]; then
+        line="waiting-for-run${want:+ of ${want:0:7}}"; misses=$((misses+1))
+        [ "$misses" -eq 3 ] && hint_no_run "${1:-}"
+      else
+        line="${s#* }"
+      fi
       [ "$line" != "$last" ] && echo "$line" && last="$line"
       case "$line" in *" completed success") exit 0;; *" completed "*) exit 1;; esac
       sleep 20; t=$((t+20))
@@ -72,7 +91,7 @@ for r in d['workflow_runs']: print(r['run_number'],r['head_sha'][:7],r['status']
     for j in $(jget "$API/actions/runs/$rid/jobs" "print(' '.join(str(x['id']) for x in d['jobs']))"); do
       jget "$API/check-runs/$j/annotations" "
 for a in d:
-    if a['annotation_level'] in ('failure','warning') or (a.get('title') or '')=='APK ready':
+    if a['annotation_level'] in ('failure','warning') or (a.get('title') or '') in ('APK ready','Resolved dependencies'):
         print(a['annotation_level'],'|',a.get('title') or '','|',a['message'][:1500])"
     done
     jget "$API/actions/runs/$rid/artifacts" "

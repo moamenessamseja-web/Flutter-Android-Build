@@ -7,11 +7,11 @@ No bash/git in your harness? Do the clone/commit/push/PR/build/report parts thro
 Auth for git, without storing the token: `AUTH="Authorization: Basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"` then `git -c http.extraheader="$AUTH" <push|fetch|clone ...>`.
 
 ## A. New app (a new repository from the template)
-1. Pick `APP` (lowercase, hyphens are fine) and the Dart package name for `pubspec.yaml` (`snake_case`). **The package name becomes the applicationId `com.moamen.<name>`; it cannot change after the first install on the phone.** Choose it from the idea and tell the owner.
+1. Pick `APP` (lowercase, hyphens are fine) and the Dart package name (`snake_case`). **The package name becomes the applicationId `<org>.<name>` (default org `com.moamen`); it cannot change after the first install on the phone.** Ask the owner for the name and the launcher label (do not guess), or choose from the idea and say so loudly.
 2. Create the repository (public) from the template:
    `curl -s -X POST -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/repos/$OWNER/Flutter-App-Template/generate -d '{"owner":"'$OWNER'","name":"'$APP'","private":false}'`
    Wait a few seconds, then clone it with the `AUTH` header.
-3. Work inside it (section C). Existing app instead: clone it, skip to C.
+3. Work inside it (section C). First command in a new app: `bash tool/rename_app.sh <package_name> "<Launcher label>" [--org com.example]` (it sets the pubspec name, imports, launcher label and optionally the org). Existing app instead: clone it, skip to C.
 
 ## B. Existing app
 Clone it, read its own `.agent/` after the gateway, inspect before changing anything.
@@ -19,7 +19,8 @@ Clone it, read its own `.agent/` after the gateway, inspect before changing anyt
 ## C. Implement, push, build
 1. `bash $GW/.skills/engineer-in-charge/scripts/orient.sh .`; if there is no `.agent/`, run `init_agent.py` (README step 5) and put the owner's request verbatim in `BRIEF.md`. If `.agent/HTTP_ONLY.md` exists (apps from the template have it), add it to the index in `.agent/README.md`, otherwise `agent_audit.py` warns.
 2. Branch `agent/<short-task>`; small commits; never commit to `main`.
-3. Keep `pubspec.yaml` dependencies pinned exactly. Design work: `design` skill.
+3. Keep `pubspec.yaml` dependencies pinned exactly (read the `Resolved dependencies` annotation of a green build; there is no committed `pubspec.lock`). Design work: `design` skill. Proven plugin versions and patterns: the template's `docs/RECIPES.md`.
+   Before pushing, run the pure-Dart tests: `python3 $GW/.skills/engineer-in-charge/scripts/pure_dart_tests.py .` (seconds; widgets/plugins are verified only by CI). **Push early**: the sandbox can be reset and unpushed work is lost.
 4. Push the branch and open a Pull Request (`POST /repos/$OWNER/$APP/pulls`). The PR starts the `Build APK` workflow.
 5. Wait: `REPO=$OWNER/$APP bash $GW/.skills/engineer-in-charge/scripts/gh_ci.sh wait <branch> 270` (exit 0 green, 1 red, 2 still running: call again). It waits for the run of your HEAD commit (override with `EXPECT_SHA`); `result <branch>` then prints the annotations (failure tail or `APK ready` with `tests=`/`analyze=`) and the artifact. `status <branch>` shows the last runs.
    `wait` may print a harmless Python traceback while the run has not been created yet; just let it continue. Only `push-run`, `status` and `wait` of that script apply here; its `log`/`notes`/`download` expect release assets that this pipeline does not produce.
@@ -40,6 +41,11 @@ Clone it, read its own `.agent/` after the gateway, inspect before changing anyt
 
 ## E. After the owner's feedback
 Continue on the same branch (or a new `agent/<task>` branch) and repeat C and D. Merge to `main` only when the owner says the build was tested on the phone.
+
+## Accidents and surprises
+- Before assuming who did something (a merge, a closed PR), read `merged_by` and the issue events through the API. A family member once merged a PR by tapping the phone.
+- `gh_ci.sh wait` prints a hint when no run of your commit appears (typically: the PR was closed or merged, so new commits build nothing; open a new PR).
+- The sandbox may reset (tools and clones disappear): `bash $GW/.skills/engineer-in-charge/scripts/setup_sandbox.sh <owner/repo> ...`. Facts about the sandbox: `harness-tools.md` section 8.
 
 ## Known limits
 - The APK is signed with the shared public debug key (fine for testing, not for publishing). Real release signing is a later step.

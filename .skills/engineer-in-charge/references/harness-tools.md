@@ -1,6 +1,6 @@
 # Harness & tools — what surrounds you and when to call what
 
-Contents: 1 Tool map · 2 Sandbox facts · 3 Memory vs `.agent/` · 4 Skills · 5 Interaction tools · 6 Safety · 7 Minimum capability contract
+Contents: 1 Tool map · 2 Sandbox facts · 3 Memory vs `.agent/` · 4 Skills · 5 Interaction tools · 6 Safety · 7 Minimum capability contract · 8 Measured facts of the claude.ai chat sandbox
 
 ## 1. Tool map (engineering work)
 | Tool | Call it when | Don't |
@@ -69,3 +69,14 @@ A harness can run this method if it can do all three: **read files, write files,
 | Qwen | to be filled after inspecting its tools | | | | not inspected |
 
 Rule: do not guess a harness's tool names. List its real tools first, then fill its row.
+
+## 8. Measured facts of the claude.ai chat sandbox (November 2026; re-measure if something behaves differently)
+Measured while building the gateway, the template and the addadi app. These cost real time when forgotten.
+- **Shell:** the `bash_tool` runs `/bin/sh`, which is dash: brace expansion (`{a,b}`), process substitution (`<(...)`), `[[ ]]`, arrays and `time` fail with "Syntax error". Put commands in a script with `#!/usr/bin/env bash` or wrap them: `bash -c '...'`.
+- **Limits:** one command may run 300 seconds; background processes are killed when the call returns (so `nohup ... &` does not survive): make long jobs resumable and run them in the foreground in chunks.
+- **Resets:** the sandbox was reset once between two tool calls (the whole of `/home/claude` and `/tmp` emptied, uncommitted work lost). Commit and push work in progress early; `scripts/setup_sandbox.sh` rebuilds the tools and clones.
+- **Network:** reachable: `github.com`, `api.github.com`, `codeload.github.com`, `raw.githubusercontent.com`, PyPI, `conda.anaconda.org` (conda-forge packages), npm, crates, Ubuntu mirrors (`apt-get install jq` works). **Blocked:** `pub.dev`, `storage.googleapis.com` (Flutter engine/Dart SDK downloads), the Azure blob hosts that serve Actions logs and artifact zips (`*.blob.core.windows.net`), `api.anaconda.org`. Unauthenticated `api.github.com` calls get 403 (rate limit): always send the token.
+- **So:** no Flutter SDK and no pub packages in the sandbox. A plain Dart SDK can be fetched from conda-forge (`dart run` works, `dart analyze` crashes); `scripts/pure_dart_tests.py` automates it for pure-Dart tests. Actions logs and artifacts cannot be downloaded: read results through check-run annotations (`gh_ci.sh result`) — the gateway workflow is built around that.
+- **Tools that install fine:** `pip install --break-system-packages actionlint-py shellcheck-py zstandard`, `apt-get install jq`.
+- **Git over HTTPS:** pass the token as a transient header (`git -c http.extraheader="Authorization: Basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" ...`); never in a remote URL. `git push` without credentials fails, as it should.
+- **Memory (claude.ai project):** project memory files under `/projects/<id>/...` hold only what the owner stated; project files in `/mnt/project` are read-only copies.

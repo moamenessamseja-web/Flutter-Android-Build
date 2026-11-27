@@ -18,3 +18,8 @@ These are independent of the agent token:
 - The caller template passes no secrets because the workflow uses none. If a caller uses `secrets: inherit` it forwards the **caller repository's** secrets only, never secrets stored in this central repository. When release signing is added, pass the keystore secrets by name (see the comment in `templates/build-apk.yml`).
 - Events created with `GITHUB_TOKEN` do not start other workflows. A Pull Request opened by the agent's own token (a PAT) triggers `pull_request` workflows normally; one opened by a workflow using `GITHUB_TOKEN` would not. This is why the agent should use the PAT, not a workflow, to open PRs.
 - Fork pull requests do not receive secrets and get a read-only token.
+
+## 4. Practical notes
+- The owner gives a token in the chat when work needs one. Use it only as a transient header; never write it into a file, a remote URL, a commit, a log or a document. A token that was pasted in a chat stays in that chat's log: if the owner wants to be safe, rotate it; do not nag more than once.
+- Check the token's identity and scopes at the start (`GET /user`, header `x-oauth-scopes`); pushing workflow files needs the `workflow` scope on a classic token.
+- Accidental actions happen on a phone (a merge by a child's tap): read the real state through the API before acting on assumptions.
