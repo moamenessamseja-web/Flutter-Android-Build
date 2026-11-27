@@ -7,7 +7,7 @@ The full story is in `JOURNEY.md`, what is left in `BACKLOG.md`. Rules for agent
 | Repository | Role | Version / state |
 |---|---|---|
 | `Flutter-Android-Build` (this one) | the gateway: reusable build workflow, PR method check, three skills, agent entry point, scripts | **current tag `v1.1.0`** (callers in the template and the ready file use it); `v1.0.0` is still used by addadi and works unchanged |
-| `Flutter-App-Template` | template repository for new apps: caller workflow, layered Dart skeleton, `tool/ci_android.sh`, `tool/rename_app.sh`, `docs/RECIPES.md` | v2 prepared on branch `feat/template-v2`; see BACKLOG for whether it is merged |
+| `Flutter-App-Template` | template repository for new apps: caller workflow, layered Dart skeleton, `tool/ci_android.sh`, `tool/rename_app.sh`, `docs/RECIPES.md` | **v2 merged to `main` on 2026-11-27** (PR #4, merge commit `444128d`); its caller pins gateway `v1.1.0`. Tested end to end through a throw-away repository: renamed, CI green (analyze, tests, release APK), and the APK ran on the owner's phone (launcher label and first screen) |
 | `addadi` | the first real app (Ɛaddady / عَدّادي): reference implementation of everything | Phase 1 + 2 finished, merged, tag `phase2-paused-2026-11-16`, last code commit `5520f0b`, installed and approved by the owner |
 
 ## The owner and how they work (do not re-ask)
