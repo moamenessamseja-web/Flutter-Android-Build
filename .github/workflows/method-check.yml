@@ -34,6 +34,29 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Determine agent memory phase
+        id: memory
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          base="${BASE_SHA:-HEAD}"
+          head="${HEAD_SHA:-HEAD}"
+          base_present=false; head_present=false
+          git cat-file -e "$base:.agent/IMPLEMENTATION_STATE.md" 2>/dev/null && base_present=true
+          git cat-file -e "$head:.agent/IMPLEMENTATION_STATE.md" 2>/dev/null && head_present=true
+          if [ "$head_present" = true ]; then
+            echo "mode=full" >> "$GITHUB_OUTPUT"
+            echo "Agent memory present in head: full audit."
+          elif [ "$base_present" = true ]; then
+            echo "::error title=Agent memory::agent memory deleted in this PR (.agent/IMPLEMENTATION_STATE.md present in base, absent in head)"
+            exit 1
+          else
+            echo "mode=bootstrap" >> "$GITHUB_OUTPUT"
+            echo "::notice::bootstrap phase: .agent/ memory not initialized yet; full audit skipped"
+          fi
+
       - name: Fetch gateway audit script
         env:
           GATEWAY_REF: ${{ inputs.gateway_ref }}
@@ -42,7 +65,28 @@ jobs:
           mkdir -p "$RUNNER_TEMP/gw"
           curl -fsSL "$base/.skills/engineer-in-charge/scripts/agent_audit.py" -o "$RUNNER_TEMP/gw/agent_audit.py"
 
+      - name: Bootstrap secret scan
+        if: steps.memory.outputs.mode == 'bootstrap'
+        run: |
+          set -euo pipefail
+          python3 - <<'PYSCAN'
+          import pathlib, re, sys
+          secret = re.compile(r'(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_\-]{30,}|sk-[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16})')
+          bad = []
+          ag = pathlib.Path('.agent')
+          if ag.is_dir():
+              for p in sorted(ag.glob('*.md')):
+                  if secret.search(p.read_text(encoding='utf-8', errors='replace')):
+                      bad.append(str(p))
+          for p in bad:
+              print(f'::error title=Agent memory::possible SECRET in {p}')
+          if bad:
+              sys.exit(1)
+          print('bootstrap secret scan: no secret-looking strings in .agent/*.md')
+          PYSCAN
+
       - name: Run audit
+        if: steps.memory.outputs.mode == 'full'
         env:
           FAIL_ON_WARNING: ${{ inputs.fail_on_warning }}
         run: |
@@ -67,6 +111,7 @@ jobs:
           if [ "$FAIL_ON_WARNING" = "true" ] && grep -q '^WARN:' "$RUNNER_TEMP/audit.txt"; then exit 1; fi
 
       - name: Memory docs changed in this PR
+        if: steps.memory.outputs.mode == 'full'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
