@@ -9,6 +9,8 @@ on:
     paths:
       - ".github/workflows/**"
       - "fixtures/**"
+      - ".skills/engineer-in-charge/scripts/**"
+      - ".skills/engineer-in-charge/assets/agent-templates/**"
 
 permissions:
   contents: read
@@ -29,6 +31,25 @@ jobs:
         run: |
           bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
           ./actionlint -color
+
+  method-self-test:
+    name: agent_audit.py fixtures (no Flutter)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Audit fixture trees
+        run: |
+          set -euo pipefail
+          audit=.skills/engineer-in-charge/scripts/agent_audit.py
+          python3 "$audit" --repo fixtures/agent-clean
+          python3 "$audit" --repo fixtures/agent-placeholders | tee placeholders.txt
+          grep -q 'unfilled template placeholder' placeholders.txt
+          if python3 "$audit" --repo fixtures/agent-vague; then echo "::error::vague status fixture must fail"; exit 1; fi
+          if python3 "$audit" --repo fixtures/agent-secret; then echo "::error::secret fixture must fail"; exit 1; fi
+          echo "method-self-test: clean=pass placeholders=warn vague=fail secret=fail"
 
   pinned:
     name: Pinned toolchain, debug (must pass)

@@ -17,11 +17,16 @@ for r in REQ:
 readme = files['README.md'].read_text(encoding='utf-8') if 'README.md' in files else ''
 for n in files:
     if n != 'README.md' and n not in readme: warns.append(f'README index does not mention {n}')
-SECRET = re.compile(r'(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_\-]{30,}|sk-[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16})')
+SECRET = re.compile(r'(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_\-]{30,}|sk-[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----|xoxb-[A-Za-z0-9-]{20,}|ya29\.[A-Za-z0-9_-]{20,})')
 for p in ag.rglob('*.md'):
     t = p.read_text(encoding='utf-8', errors='replace')
     if SECRET.search(t): errs.append(f'possible SECRET in {p.relative_to(root)}')
-    if p.parent == ag and re.search(r'<<[A-Z_ ]+>>', t): warns.append(f'unfilled template placeholder in {p.name}')
+    if p.parent == ag:
+        hints = []
+        if re.search(r'<<[^>\n]+>>', t): hints.append('angle-bracket hint')
+        if re.search(r'^\s*[-*]\s+.*…\s*$', t, re.M): hints.append('bullet ending with ellipsis')
+        if any(line.strip().startswith('|') and any(cell.strip() == '…' for cell in line.strip().strip('|').split('|')) for line in t.splitlines()): hints.append('table cell that is exactly an ellipsis')
+        if hints: warns.append(f'unfilled template placeholder in {p.name} ({", ".join(hints)})')
 VALID = ['Verified complete', 'Implemented, not yet verified', 'Partially implemented', 'Not started', 'Blocked', 'Deferred by product decision']
 if 'implementation.md' in files:
     t = files['implementation.md'].read_text(encoding='utf-8')
