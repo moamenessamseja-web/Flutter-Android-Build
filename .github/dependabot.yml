@@ -1,0 +1,12 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+# Dependabot updates action refs in THIS gateway only. Caller pins to gateway tags
+# (uses: ...Flutter-Android-Build/...@vX) follow the manual upgrade process, never Dependabot.
