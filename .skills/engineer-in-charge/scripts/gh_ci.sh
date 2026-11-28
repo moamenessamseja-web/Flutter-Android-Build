@@ -34,11 +34,16 @@ want_sha() {
 }
 # Print "<run_id> <run_number> <sha7> <status> <conclusion>" for the newest run of the wanted commit, or "none".
 pick_run() { # $1 branch query (may be empty)  $2 wanted sha (may be empty)
-  EXPECT_SHA="$2" jget "$API/actions/runs?per_page=20$1" "
+  # Optional filters for the gateway repo itself (many workflows): CI_WORKFLOW=<name or file>, CI_EVENT=<event>.
+  # App repos have one workflow; leave these unset to preserve existing behavior.
+  EXPECT_SHA="$2" CI_WORKFLOW="${CI_WORKFLOW:-}" CI_EVENT="${CI_EVENT:-}" jget "$API/actions/runs?per_page=30$1" "
 import os
 want=os.environ.get('EXPECT_SHA','')
+wf=os.environ.get('CI_WORKFLOW',''); ev=os.environ.get('CI_EVENT','')
 runs=d.get('workflow_runs',[])
 if want: runs=[r for r in runs if r['head_sha'].startswith(want)]
+if wf: runs=[r for r in runs if r.get('name')==wf or r.get('path','').endswith('/'+wf)]
+if ev: runs=[r for r in runs if r.get('event')==ev]
 print(runs[0]['id'],runs[0]['run_number'],runs[0]['head_sha'][:7],runs[0]['status'],runs[0]['conclusion']) if runs else print('none')"
 }
 # Printed once when no run of the wanted commit shows up for a minute: the usual reasons.

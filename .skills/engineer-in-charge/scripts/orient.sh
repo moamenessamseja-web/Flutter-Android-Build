@@ -8,7 +8,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 trunc() { python3 -c "import sys;sys.stdin.reconfigure(errors='replace');sys.stdout.reconfigure(errors='replace');[print(l.rstrip('\n')[:${1:-200}]) for l in sys.stdin]"; }
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "not a git repo -> init/clone first"; exit 2; }
 echo "== branch / HEAD =="; git branch --show-current; git log --oneline -6 | trunc 120
-git rev-parse HEAD > /tmp/session_start_sha
+ROOT="$(git rev-parse --show-toplevel)"
+KEY="$(basename "$ROOT")_$(printf '%s' "$ROOT" | sha1sum | cut -c1-10)"
+git rev-parse HEAD > "/tmp/session_start_sha_${KEY}"
 echo "== working tree =="; git status --short | head -15
 if [ ! -d .agent ]; then
   echo; echo "!! NO .agent/ DIRECTORY -> run: python3 $HERE/init_agent.py --project \"<name>\""; exit 0
