@@ -22,7 +22,7 @@ Reusable engineering rules, skills and CI for all of the owner's repositories (m
 |---|---|---|
 | `engineer-in-charge` | **Always, at the start of any task** on any code project; also when work loops, is unverified, or "looks done but doesn't work". | `SKILL.md` |
 | `flutter-ci-engineering` | Flutter/Android work where builds happen on GitHub Actions (no local SDK): APK builds, CI failures, black-screen/dependency drift, handoff/state files. | `SKILL.md` |
-| `design` | Any UI, theme, screen or visual-identity work in a Flutter app. | `SKILL.md` -> `DESIGN.md` |
+| `design` | Product discovery, information architecture, visual hierarchy/language, component composition, UX flows/states, design critique, and Flutter UI implementation. | `SKILL.md` -> `DESIGN.md` -> task-relevant `references/` and `templates/` |
 
 Notes on `flutter-ci-engineering`: its `references/manager-assistant.md` contains facts about one specific project (`manager-assistant-ready`); use it only for that repository. It uses the shared scripts in `engineer-in-charge/scripts/` (`gh_ci.sh`, gates). It assumes a caller workflow named `build-apk.yml` (see README "Connect another Flutter repository"). Read build results with `gh_ci.sh result <branch>`; the central workflow publishes annotations and artifacts, not releases.
 
