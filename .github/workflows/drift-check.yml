@@ -1,0 +1,59 @@
+# Machine signal for the manual rule: when a gateway ready file changes, the template copy must change too.
+# Allowed differences are EXACTLY the two intentional caller additions in Flutter-App-Template:
+#   1. the pre_build_command line running tool/ci_android.sh
+#   2. the --org comment wording on the scaffold_args line
+# Any other difference fails with a unified diff. HTTP_ONLY.md must be byte-identical.
+name: Drift check (template copies)
+
+on:
+  pull_request:
+    paths:
+      - ".agent/**"
+  schedule:
+    - cron: "23 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: Gateway vs template copies
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Fetch template main copies and diff
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tpl/.github/workflows" "$RUNNER_TEMP/tpl/.agent"
+          raw="https://raw.githubusercontent.com/moamenessamseja-web/Flutter-App-Template/main"
+          curl -fsSL "$raw/.github/workflows/build-apk.yml" -o "$RUNNER_TEMP/tpl/.github/workflows/build-apk.yml"
+          curl -fsSL "$raw/.agent/HTTP_ONLY.md" -o "$RUNNER_TEMP/tpl/.agent/HTTP_ONLY.md"
+          python3 - <<'PYDIFF'
+          import difflib, pathlib, sys
+          gw = pathlib.Path('.')
+          tpl = pathlib.Path(__import__('os').environ['RUNNER_TEMP']) / 'tpl'
+          def read(p): return p.read_text(encoding='utf-8').splitlines(keepends=True)
+          def fail(title, a, b, la, lb):
+              diff = ''.join(difflib.unified_diff(a, b, fromfile=la, tofile=lb))
+              print(diff)
+              print(f'::error title=Template drift::{title}%0A' + diff.replace('%', '%25').replace('\n', '%0A').replace('\r', '%0D')[:60000])
+              sys.exit(1)
+          # HTTP_ONLY.md: byte-identical.
+          a = read(gw / '.agent/HTTP_ONLY.md'); b = read(tpl / '.agent/HTTP_ONLY.md')
+          if a != b: fail('.agent/HTTP_ONLY.md differs from gateway', a, b, 'gateway/.agent/HTTP_ONLY.md', 'template/.agent/HTTP_ONLY.md')
+          # build-apk.yml: remove only the two documented intentional caller differences from the template copy.
+          a = read(gw / '.agent/templates/build-apk.yml'); b = read(tpl / '.github/workflows/build-apk.yml')
+          pre = '      pre_build_command: "bash tool/ci_android.sh"   # launcher label + optional native features (tool/android_label.txt, tool/android_features.txt)\n'
+          org_tpl = '      scaffold_args: "--org com.moamen"    # applicationId = <org>.<pubspec name>; set by tool/rename_app.sh; cannot change after the first install\n'
+          org_gw  = '      scaffold_args: "--org com.moamen"    # applicationId = com.moamen.<pubspec name>; cannot change after the first install\n'
+          if pre not in b: fail('allowed pre_build_command line missing from template caller', a, b, 'gateway ready caller', 'template caller')
+          b.remove(pre)
+          if org_tpl not in b: fail('allowed --org comment line missing from template caller', a, b, 'gateway ready caller', 'template caller')
+          b[b.index(org_tpl)] = org_gw
+          if a != b: fail('build-apk.yml differs beyond the documented allowlist', a, b, 'gateway/.agent/templates/build-apk.yml', 'template/.github/workflows/build-apk.yml')
+          print('drift-check: template copies match gateway sources (allowlist applied)')
+          PYDIFF
