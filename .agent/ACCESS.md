@@ -23,3 +23,12 @@ These are independent of the agent token:
 - The owner gives a token in the chat when work needs one. Use it only as a transient header; never write it into a file, a remote URL, a commit, a log or a document. A token that was pasted in a chat stays in that chat's log: if the owner wants to be safe, rotate it; do not nag more than once.
 - Check the token's identity and scopes at the start (`GET /user`, header `x-oauth-scopes`); pushing workflow files needs the `workflow` scope on a classic token.
 - Accidental actions happen on a phone (a merge by a child's tap): read the real state through the API before acting on assumptions.
+
+## 5. Lockfile workflow write permission (D1b)
+`.github/workflows/lockfile.yml` is the first reusable workflow needing `contents: write`. It is safe because:
+- it refuses `refs/heads/main` before checkout;
+- it runs only when manually dispatched on a feature branch;
+- it writes only `pubspec.lock` in the requested working directory;
+- it pushes to the same dispatched branch, never to another branch;
+- the push uses `GITHUB_TOKEN`, which does not trigger other workflows (no CI loop).
+After dispatch, re-read HEAD (the bot lock commit) before opening the PR, and set `EXPECT_SHA` accordingly when waiting for CI.
