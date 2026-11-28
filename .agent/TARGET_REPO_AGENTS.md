@@ -20,7 +20,7 @@ You cannot run the gate scripts in that mode; HTTP_ONLY.md defines the API equiv
 
 ## Facts to respect in every target repository
 - `.github/workflows/build-apk.yml` calls the gateway's reusable workflow. Keep the Flutter version pinned.
-- Commit `pubspec.lock`; the pub cache key uses its hash.
+- Commit `pubspec.lock` if it exists (the pub cache key uses its hash). If it does not exist yet: pin exact versions from the `Resolved dependencies` annotation of a green build; CI lockfile generation is roadmap item D1.
 - The applicationId is fixed by the pubspec `name` (+ `--org`). Decide it BEFORE the first APK is installed on the owner's phone; it cannot change afterwards without uninstalling.
 - Work on `agent/<task>`, open a PR with the agent's own PAT (a PR opened with `GITHUB_TOKEN` does not start CI). Merge to `main` only after the owner device-tested.
 ---
