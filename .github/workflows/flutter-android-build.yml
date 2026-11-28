@@ -82,7 +82,7 @@ on:
         type: boolean
         default: true
       report_dependencies:
-        description: "Print the resolved direct dependencies and platform implementations (with versions) in the run summary and as a `Resolved dependencies` annotation, so exact versions can be pinned without a committed pubspec.lock."
+        description: "Print the resolved direct dependencies, platform implementations and ALL transitive packages (sorted name@version) in the run summary and as a `Resolved dependencies` annotation, so exact versions can be pinned without a committed pubspec.lock."
         required: false
         type: boolean
         default: true
@@ -194,12 +194,15 @@ jobs:
             direct=$(jq -r '[.packages[]? | select(.kind=="direct" or .kind=="dev") | "\(.name) \(.version)"] | join(", ")' "$LOG_DIR/deps.json" 2>/dev/null || true)
             platform=$(jq -r '[.packages[]? | select(.kind=="transitive") | select(.name|test("_(android|ios)$")) | "\(.name) \(.version)"] | join(", ")' "$LOG_DIR/deps.json" 2>/dev/null || true)
             total=$(jq '[.packages[]?] | length' "$LOG_DIR/deps.json" 2>/dev/null || echo "?")
-            echo "::notice title=Resolved dependencies::direct+dev: ${direct:-none} | platform implementations: ${platform:-none} | packages total: ${total}"
+            # D1a: full sorted transitive list so HTTP-only agents can pin everything today.
+            all=$(jq -r '[.packages[]? | "\(.name)@\(.version)"] | sort | join(", ")' "$LOG_DIR/deps.json" 2>/dev/null || true)
+            echo "::notice title=Resolved dependencies::direct+dev: ${direct:-none} | platform implementations: ${platform:-none} | packages total: ${total} | all: ${all:-unavailable}"
             {
               echo "### Resolved dependencies"
               echo "- direct and dev: ${direct:-none}"
               echo "- platform implementations (android/ios): ${platform:-none}"
               echo "- total packages: ${total}"
+              echo "- all packages (sorted name@version): ${all:-unavailable}"
             } >> "$GITHUB_STEP_SUMMARY"
           else
             echo "::warning title=Resolved dependencies::flutter pub deps --json failed; versions not reported"
