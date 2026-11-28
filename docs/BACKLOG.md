@@ -1,4 +1,4 @@
-# BACKLOG — what is left (priority order), 2026-11-19
+# BACKLOG — what is left (priority order), 2026-11-28
 
 Legend: [open] not started · [partial] some done · [manual] verified by hand, not automated.
 
@@ -15,7 +15,7 @@ Legend: [open] not started · [partial] some done · [manual] verified by hand, 
 10. [open] The template's own PRs always fail the `method / Agent memory audit` job (the template has no `.agent/` state by design); it failed on template PRs #2, #3 and #4, all merged because the job does not block the build and `main` is not protected. Skipping it when `.agent/IMPLEMENTATION_STATE.md` is absent would remove the noise, but it changes the caller every app copies: decide deliberately.
 
 ## Template (`Flutter-App-Template`)
-1. [manual] v2 is merged (PR #4, 2026-11-27) and was tested end to end: a repository created from it was renamed, built green in CI and the APK ran on the owner's phone (label and first screen). Not exercised on a device: the notifications and `SharedPreferences` APIs (recipes only, no code uses them). The throw-away repository `zz-tpl-e2e` can be deleted by the owner.
+1. [manual] v2 is merged (PR #4, 2026-11-27) and was tested end to end: a repository created from it was renamed, built green in CI and the APK ran on the owner's phone (label and first screen). Not exercised on a device: the notifications and `SharedPreferences` APIs (recipes only, no code uses them). The throw-away repository `zz-tpl-e2e` must be archived, never deleted: its run 45966298363 is cited evidence in `docs/RECIPES.md`; key facts are snapshotted in `STATUS.md` (2026-11-28).
 2. [open] A real `PrefsStorage` and a `notifications` skeleton are recipes, not code: add them as code only when a second app needs them.
 3. [open] Design skill review (the owner reports the card/widget sizes in addadi differ from the design foundation; the design skills are being reviewed in other conversations).
 
