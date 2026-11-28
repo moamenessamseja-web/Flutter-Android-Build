@@ -33,3 +33,6 @@ Written for a new conversation that did not live it. Dates are when the work hap
 
 ## 4. People and tools
 Claude Opus reviewed the first design and proposed the ordering "fix the sensors before the referees"; Sonnet versions did earlier work in `manager-assistant-ready` (the notifications fix `d2a17ef` is the proven reference). The owner's other repositories (`mulkcare`, `note-me-`, `manager-assistant-ready`, `addadi`) are not touched by the gateway unless the owner asks.
+
+## 5. Refinement session (2026-11-28)
+Owner commissioned the master work order after a full review. Housekeeping first: merged branches deleted only after API re-verification; `zz-tpl-e2e` evidence snapshotted before archiving. Owner decisions: archive `zz-tpl-e2e` (agent authorized to execute); defer real release signing (D2) and branch protection (D3); keep one fat APK artifact (D6). Losing a future production signing key would lose the app's Play identity forever, so D2 stays blocked until key location, backup and publisher decisions are explicit.
